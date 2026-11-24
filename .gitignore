@@ -1,0 +1,18 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local secrets & exports — never commit real tokens, URLs, or personal finance data
+.env
+*.env
+secrets.*
+*.local.*
+ledger-backup-*.json
+ledger-*.xlsx
+transactions-*.csv
+
+# Tooling
+node_modules/
+.netlify/

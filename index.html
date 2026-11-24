@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger – Expense Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--muted:#77756f;--line:#e6e3dc;
+  --accent:#2f6f5e;--accent-ink:#fff;--bad:#b3402f;--good:#2f7a4b;--warn:#b7791f;
+  --radius:12px;--shadow:0 1px 2px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#151514;--card:#1f1f1d;--ink:#eeece6;--muted:#9a978f;--line:#33322f;--accent:#5fb89f;--accent-ink:#0f1a17;--bad:#e27a66;--good:#6fcf8f;--warn:#e0b25a}
+}
+:root[data-theme="dark"]{--bg:#151514;--card:#1f1f1d;--ink:#eeece6;--muted:#9a978f;--line:#33322f;--accent:#5fb89f;--accent-ink:#0f1a17;--bad:#e27a66;--good:#6fcf8f;--warn:#e0b25a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-weight:700;font-size:18px;letter-spacing:-.02em}
+nav{display:flex;gap:4px;flex:1;overflow-x:auto}
+nav button{background:none;border:0;color:var(--muted);padding:8px 12px;border-radius:8px;font:inherit;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.big{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:13px}
+.pos{color:var(--good)}.neg{color:var(--bad)}.pend{color:var(--warn)}
+button.btn,.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button.danger{background:transparent;color:var(--bad);border:1px solid var(--line)}
+button.sm{padding:4px 9px;font-size:13px;font-weight:500}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row>*{flex:1;min-width:130px}
+.row>.auto{flex:0 0 auto;min-width:0}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.tag.p{color:var(--warn);border-color:var(--warn)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.bar-t{height:7px;background:var(--line);border-radius:9px;overflow:hidden;margin-top:4px}
+.bar-t>i{display:block;height:100%;background:var(--accent)}
+.bar-t.over>i{background:var(--bad)}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;width:min(520px,94vw)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;background:none;border:0;padding:8px;font:inherit;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.actions{display:flex;gap:6px;justify-content:flex-end}
+.empty{color:var(--muted);text-align:center;padding:28px 8px}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-size:12px;max-height:260px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:9px;z-index:99;font-size:14px}
+.note{font-size:13px;color:var(--muted);margin:6px 0 0}
+@media(max-width:640px){.hide-m{display:none}}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="logo">Ledger</div>
+  <nav id="nav"></nav>
+  <span class="sub" id="syncState"></span>
+  <button class="btn" id="addBtn">+ Add</button>
+</div></header>
+<main id="view"></main>
+
+<dialog id="txDlg"></dialog>
+<dialog id="acctDlg"></dialog>
+
+<script>
+/* ================= State ================= */
+const KEY='ledger.v1';
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const defaultState=()=>({
+  version:1,updatedAt:0,
+  settings:{currency:'USD',theme:'auto',syncUrl:'',syncToken:'',autoSync:false},
+  accounts:[],
+  categories:[
+    ['Groceries','expense','#6a994e',0],['Dining out','expense','#bc4749',0],['Rent / Mortgage','expense','#386641',0],
+    ['Utilities','expense','#4d908e',0],['Transport','expense','#277da1',0],['Gas','expense','#577590',0],
+    ['Health','expense','#f94144',0],['Shopping','expense','#9b5de5',0],['Entertainment','expense','#f3722c',0],
+    ['Subscriptions','expense','#f8961e',0],['Travel','expense','#43aa8b',0],['Other','expense','#8d99ae',0],
+    ['Paycheck','income','#2f7a4b',0],['Other income','income','#74a57f',0]
+  ].map(([name,type,color,budget])=>({id:uid(),name,type,color,budget})),
+  txns:[]
+});
+let S=load();
+function load(){try{const r=localStorage.getItem(KEY);if(r)return Object.assign(defaultState(),JSON.parse(r))}catch(e){}return defaultState()}
+let pushTimer=null;
+function save(touch=true){
+  if(touch)S.updatedAt=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Could not save locally: '+e.message)}
+  if(touch&&S.settings.autoSync&&S.settings.syncUrl){clearTimeout(pushTimer);pushTimer=setTimeout(()=>push(true),1500)}
+}
+
+/* ================= Helpers ================= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>new Intl.NumberFormat(undefined,{style:'currency',currency:S.settings.currency||'USD'}).format(n||0);
+const acct=id=>S.accounts.find(a=>a.id===id);
+const cat=id=>S.categories.find(c=>c.id===id);
+const monthOf=d=>d.slice(0,7);
+const monthLabel=m=>new Date(m+'-15').toLocaleString(undefined,{month:'long',year:'numeric'});
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),2600)}
+function effect(t,accountId){ // signed effect of txn t on account
+  if(t.type==='expense')return t.account===accountId?-t.amount:0;
+  if(t.type==='income')return t.account===accountId?t.amount:0;
+  if(t.type==='transfer'){let e=0;if(t.account===accountId)e-=t.amount;if(t.toAccount===accountId)e+=t.amount;return e}
+  return 0;
+}
+function balances(a){
+  let cleared=+a.opening||0,pending=0;
+  for(const t of S.txns){
+    const e=effect(t,a.id);if(!e)continue;
+    if(t.status==='pending')pending+=e;else cleared+=e;
+  }
+  return {cleared,pending,projected:cleared+pending};
+}
+const cls=n=>n<0?'neg':n>0?'pos':'';
+
+/* ================= Router ================= */
+const tabs=[['dash','Dashboard'],['txns','Transactions'],['accts','Accounts'],['settings','Settings']];
+let tab='dash';
+let monthSel=monthOf(today());
+let filt={q:'',account:'',category:'',status:'',month:'all'};
+function renderNav(){
+  $('#nav').innerHTML=tabs.map(([k,l])=>`<button class="${k===tab?'on':''}" data-t="${k}">${l}</button>`).join('');
+  $('#nav').onclick=e=>{const b=e.target.closest('button');if(b){tab=b.dataset.t;render()}};
+}
+function render(){
+  renderNav();
+  document.documentElement.dataset.theme=S.settings.theme==='auto'?'':S.settings.theme;
+  ({dash:viewDash,txns:viewTxns,accts:viewAccts,settings:viewSettings})[tab]();
+  $('#syncState').textContent=S.settings.syncUrl?(S.settings.autoSync?'Sheets sync: auto':'Sheets: manual'):'';
+}
+
+/* ================= Dashboard ================= */
+function viewDash(){
+  const accts=S.accounts.filter(a=>!a.archived);
+  const tot=accts.reduce((s,a)=>{const b=balances(a);s.c+=b.cleared;s.p+=b.pending;return s},{c:0,p:0});
+  const mt=S.txns.filter(t=>monthOf(t.date)===monthSel);
+  const inc=mt.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const exp=mt.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const byCat={};mt.filter(t=>t.type==='expense').forEach(t=>byCat[t.category]=(byCat[t.category]||0)+t.amount);
+  const rows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const max=Math.max(1,...rows.map(r=>r[1]));
+  const pendingList=S.txns.filter(t=>t.status==='pending').sort((a,b)=>a.date<b.date?1:-1);
+  const recent=[...S.txns].sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0).slice(0,8);
+  const months=[...new Set([monthOf(today()),monthSel,...S.txns.map(t=>monthOf(t.date))])].sort().reverse();
+  if(!S.accounts.length){
+    $('#view').innerHTML=`<div class="card empty"><h2>Welcome</h2><p>Start by adding your accounts with their current balances, then log transactions.</p><button class="btn" onclick="openAcct()">Add your first account</button></div>`;return;
+  }
+  $('#view').innerHTML=`
+  <div class="grid g4">
+    <div class="card"><h3>Cleared balance</h3><div class="big ${cls(tot.c)}">${fmt(tot.c)}</div><div class="sub">across ${accts.length} accounts</div></div>
+    <div class="card"><h3>After pending</h3><div class="big ${cls(tot.c+tot.p)}">${fmt(tot.c+tot.p)}</div><div class="sub pend">${fmt(tot.p)} pending (${pendingList.length})</div></div>
+    <div class="card"><h3>Income · ${monthLabel(monthSel)}</h3><div class="big pos">${fmt(inc)}</div></div>
+    <div class="card"><h3>Spent · ${monthLabel(monthSel)}</h3><div class="big">${fmt(exp)}</div><div class="sub">Net ${fmt(inc-exp)}</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><h3 style="margin:0;flex:1">Spending by category</h3>
+      <select id="mSel" class="auto" style="width:auto">${months.map(m=>`<option value="${m}" ${m===monthSel?'selected':''}>${monthLabel(m)}</option>`).join('')}</select></div>
+      ${rows.length?rows.map(([id,v])=>{const c=cat(id),b=c?+c.budget:0;
+        return `<div style="margin:10px 0"><div class="row" style="gap:6px"><span style="flex:1"><span class="dot" style="background:${c?c.color:'#999'}"></span>${esc(c?c.name:'Uncategorized')}</span><b class="auto">${fmt(v)}${b?` <span class="sub">/ ${fmt(b)}</span>`:''}</b></div>
+        <div class="bar-t ${b&&v>b?'over':''}"><i style="width:${Math.min(100,(b?v/b:v/max)*100)}%;${c?`background:${b&&v>b?'':c.color}`:''}"></i></div></div>`}).join(''):'<div class="empty">No spending this month yet.</div>'}
+    </div>
+    <div class="card"><h3>Pending</h3>
+      ${pendingList.length?`<table>${pendingList.slice(0,8).map(t=>`<tr><td>${t.date.slice(5)}</td><td>${esc(t.payee||cat(t.category)?.name||t.type)}<div class="sub">${esc(acct(t.account)?.name||'')}</div></td><td class="num ${t.type==='income'?'pos':''}">${t.type==='income'?'+':'-'}${fmt(t.amount)}</td><td class="num"><button class="btn sm" onclick="clearTx('${t.id}')">Clear</button></td></tr>`).join('')}</table>`:'<div class="empty">Nothing pending 🎉</div>'}
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px"><h3>Recent</h3>${txTable(recent,false)}</div>`;
+  $('#mSel').onchange=e=>{monthSel=e.target.value;viewDash()};
+}
+
+/* ================= Transactions ================= */
+function txTable(list,actions=true){
+  if(!list.length)return '<div class="empty">No transactions.</div>';
+  return `<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Payee / note</th><th class="hide-m">Category</th><th class="hide-m">Account</th><th class="num">Amount</th><th>Status</th>${actions?'<th></th>':''}</tr></thead><tbody>
+  ${list.map(t=>{
+    const c=cat(t.category),a=acct(t.account),to=acct(t.toAccount);
+    const sign=t.type==='income'?'+':t.type==='expense'?'-':'';
+    const amtCls=t.type==='income'?'pos':t.type==='expense'?'':'sub';
+    return `<tr><td>${t.date}</td>
+      <td>${esc(t.payee||(t.type==='transfer'?'Transfer':''))}<div class="sub">${esc(t.note||'')}</div></td>
+      <td class="hide-m">${t.type==='transfer'?'<span class="sub">Transfer</span>':`<span class="dot" style="background:${c?c.color:'#999'}"></span>${esc(c?c.name:'—')}`}</td>
+      <td class="hide-m">${esc(a?a.name:'?')}${t.type==='transfer'?' → '+esc(to?to.name:'?'):''}</td>
+      <td class="num ${amtCls}">${sign}${fmt(t.amount)}</td>
+      <td>${t.status==='pending'?`<span class="tag p">Pending</span>`:`<span class="tag">Cleared</span>`}</td>
+      ${actions?`<td class="actions">${t.status==='pending'?`<button class="btn sm" onclick="clearTx('${t.id}')">Clear</button>`:''}<button class="ghost sm" onclick="openTx('${t.id}')">Edit</button></td>`:''}</tr>`}).join('')}
+  </tbody></table></div>`;
+}
+function filtered(){
+  return S.txns.filter(t=>{
+    if(filt.month!=='all'&&monthOf(t.date)!==filt.month)return false;
+    if(filt.account&&t.account!==filt.account&&t.toAccount!==filt.account)return false;
+    if(filt.category&&t.category!==filt.category)return false;
+    if(filt.status&&t.status!==filt.status)return false;
+    if(filt.q){const q=filt.q.toLowerCase();if(!((t.payee||'')+' '+(t.note||'')).toLowerCase().includes(q))return false}
+    return true;
+  }).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+}
+function viewTxns(){
+  const months=[...new Set(S.txns.map(t=>monthOf(t.date)))].sort().reverse();
+  const opt=(arr,sel,all)=>`<option value="">${all}</option>`+arr.map(([v,l])=>`<option value="${v}" ${v===sel?'selected':''}>${esc(l)}</option>`).join('');
+  $('#view').innerHTML=`<div class="card">
+    <div class="row" style="margin-bottom:12px">
+      <div><label>Search</label><input id="fq" value="${esc(filt.q)}" placeholder="payee or note"></div>
+      <div><label>Month</label><select id="fm"><option value="all">All time</option>${months.map(m=>`<option value="${m}" ${m===filt.month?'selected':''}>${monthLabel(m)}</option>`).join('')}</select></div>
+      <div><label>Account</label><select id="fa">${opt(S.accounts.map(a=>[a.id,a.name]),filt.account,'All accounts')}</select></div>
+      <div><label>Category</label><select id="fc">${opt(S.categories.map(c=>[c.id,c.name]),filt.category,'All categories')}</select></div>
+      <div><label>Status</label><select id="fs">${opt([['pending','Pending'],['cleared','Cleared']],filt.status,'Any status')}</select></div>
+    </div><div id="tl"></div></div>`;
+  const upd=()=>{const l=filtered();
+    const tot=l.reduce((s,t)=>s+(t.type==='income'?t.amount:t.type==='expense'?-t.amount:0),0);
+    $('#tl').innerHTML=`<div class="sub" style="margin-bottom:6px">${l.length} transactions · net ${fmt(tot)} (excl. transfers)</div>`+txTable(l)};
+  upd();
+  $('#fq').oninput=e=>{filt.q=e.target.value;upd()};
+  [['fm','month'],['fa','account'],['fc','category'],['fs','status']].forEach(([id,k])=>$('#'+id).onchange=e=>{filt[k]=e.target.value;upd()});
+}
+function clearTx(id){const t=S.txns.find(x=>x.id===id);if(!t)return;t.status='cleared';save();render();toast('Marked cleared')}
+
+/* Add/edit transaction dialog */
+let txDraft=null;
+function openTx(id){
+  if(!S.accounts.length){toast('Add an account first');tab='accts';render();return}
+  const ex=id&&S.txns.find(t=>t.id===id);
+  txDraft=ex?{...ex}:{id:'',date:today(),amount:'',type:'expense',account:S.accounts.find(a=>!a.archived)?.id||S.accounts[0].id,toAccount:'',category:'',payee:'',note:'',status:'cleared'};
+  drawTx();$('#txDlg').showModal();
+}
+function drawTx(){
+  const d=txDraft,isT=d.type==='transfer';
+  const cats=S.categories.filter(c=>c.type===(d.type==='income'?'income':'expense'));
+  if(!isT&&!cats.find(c=>c.id===d.category))d.category=cats[0]?.id||'';
+  const acc=S.accounts.filter(a=>!a.archived||a.id===d.account||a.id===d.toAccount);
+  $('#txDlg').innerHTML=`<form method="dialog" id="txForm" style="display:grid;gap:12px">
+    <h2 style="margin:0">${d.id?'Edit':'Add'} transaction</h2>
+    <div class="seg">${['expense','income','transfer'].map(t=>`<button type="button" data-ty="${t}" class="${d.type===t?'on':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>
+    <div class="row"><div><label>Amount</label><input id="tA" type="number" step="0.01" min="0" inputmode="decimal" value="${d.amount}" required autofocus></div>
+    <div><label>Date</label><input id="tD" type="date" value="${d.date}" required></div></div>
+    <div class="row"><div><label>${isT?'From account':'Account'}</label><select id="tAc">${acc.map(a=>`<option value="${a.id}" ${a.id===d.account?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
+    ${isT?`<div><label>To account</label><select id="tTo">${acc.filter(a=>a.id!==d.account).map(a=>`<option value="${a.id}" ${a.id===d.toAccount?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>`
+         :`<div><label>Category</label><select id="tC">${cats.map(c=>`<option value="${c.id}" ${c.id===d.category?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`}</div>
+    <div><label>${isT?'Description':'Payee'}</label><input id="tP" value="${esc(d.payee)}" list="payees"></div>
+    <datalist id="payees">${[...new Set(S.txns.map(t=>t.payee).filter(Boolean))].map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
+    <div><label>Note</label><input id="tN" value="${esc(d.note)}"></div>
+    <div><label>Status</label><div class="seg"><button type="button" data-st="cleared" class="${d.status==='cleared'?'on':''}">Cleared</button><button type="button" data-st="pending" class="${d.status==='pending'?'on':''}">Pending</button></div></div>
+    <div class="actions" style="margin-top:4px">${d.id?`<button type="button" class="danger" id="tDel" style="margin-right:auto">Delete</button>`:''}<button type="button" class="ghost" id="tCancel">Cancel</button><button class="btn" id="tSave" type="submit">Save</button></div>
+  </form>`;
+  const form=$('#txForm'),pull=()=>{
+    d.amount=$('#tA').value;d.date=$('#tD').value;d.account=$('#tAc').value;d.payee=$('#tP').value;d.note=$('#tN').value;
+    if($('#tC'))d.category=$('#tC').value;if($('#tTo'))d.toAccount=$('#tTo').value};
+  form.onclick=e=>{const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.ty){pull();d.type=b.dataset.ty;if(d.type==='transfer'){d.category='';d.toAccount=S.accounts.find(a=>a.id!==d.account)?.id||''}drawTx()}
+    if(b.dataset.st){pull();d.status=b.dataset.st;drawTx()}};
+  $('#tAc').onchange=()=>{pull();if(d.type==='transfer'&&d.toAccount===d.account)d.toAccount='';drawTx()};
+  $('#tCancel').onclick=()=>$('#txDlg').close();
+  if($('#tDel'))$('#tDel').onclick=()=>{if(confirm('Delete this transaction?')){S.txns=S.txns.filter(t=>t.id!==d.id);save();$('#txDlg').close();render()}};
+  form.onsubmit=e=>{pull();
+    const amt=Math.abs(parseFloat(d.amount));if(!amt){e.preventDefault();return}
+    if(d.type==='transfer'&&(!d.toAccount||d.toAccount===d.account)){e.preventDefault();toast('Pick a different destination account');return}
+    const rec={...d,amount:Math.round(amt*100)/100};
+    if(rec.id)S.txns=S.txns.map(t=>t.id===rec.id?rec:t);else{rec.id=uid();S.txns.push(rec)}
+    save();render()};
+}
+
+/* ================= Accounts ================= */
+const ACCT_TYPES=['Checking','Savings','Credit card','Cash','Investment','Loan','Other'];
+function viewAccts(){
+  const act=S.accounts.filter(a=>!a.archived),arc=S.accounts.filter(a=>a.archived);
+  const card=a=>{const b=balances(a);return `<div class="card">
+    <div class="row" style="align-items:flex-start"><div><b>${esc(a.name)}</b><div class="sub">${esc(a.type)} · opened ${a.openingDate||'—'} at ${fmt(a.opening)}</div></div>
+    <div class="actions auto"><button class="ghost sm" onclick="openAcct('${a.id}')">Edit</button></div></div>
+    <div class="big ${cls(b.cleared)}" style="margin-top:8px">${fmt(b.cleared)}</div><div class="sub">cleared balance</div>
+    <div style="margin-top:8px" class="sub pend">${b.pending?`${fmt(b.pending)} pending → <b>${fmt(b.projected)}</b> projected`:'No pending items'}</div></div>`};
+  $('#view').innerHTML=`<div class="row" style="margin-bottom:12px"><h2 style="margin:0">Accounts</h2><button class="btn auto" onclick="openAcct()">+ New account</button></div>
+  ${act.length?`<div class="grid g2">${act.map(card).join('')}</div>`:'<div class="card empty">No accounts yet.</div>'}
+  ${arc.length?`<h3 class="sub" style="margin-top:20px">Archived</h3><div class="grid g2">${arc.map(card).join('')}</div>`:''}
+  <p class="note">Opening balance = what the account held on its “as of” date. Cleared balance = opening + all cleared transactions. Pending transactions show separately until you clear them. For credit cards and loans, enter what you owe as a negative opening balance.</p>`;
+}
+function openAcct(id){
+  const a=id?acct(id):{id:'',name:'',type:'Checking',opening:0,openingDate:today(),archived:false};
+  $('#acctDlg').innerHTML=`<form method="dialog" id="aForm" style="display:grid;gap:12px"><h2 style="margin:0">${id?'Edit':'New'} account</h2>
+    <div><label>Name</label><input id="aN" value="${esc(a.name)}" required autofocus></div>
+    <div class="row"><div><label>Type</label><select id="aT">${ACCT_TYPES.map(t=>`<option ${t===a.type?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div><label>Opening balance</label><input id="aO" type="number" step="0.01" value="${a.opening}"></div>
+    <div><label>As of date</label><input id="aD" type="date" value="${a.openingDate||today()}"></div></div>
+    ${id?`<label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink)"><input type="checkbox" id="aA" style="width:auto" ${a.archived?'checked':''}> Archived (hide from totals)</label>`:''}
+    <div class="actions">${id?`<button type="button" class="danger" id="aDel" style="margin-right:auto">Delete</button>`:''}<button type="button" class="ghost" id="aC">Cancel</button><button class="btn">Save</button></div></form>`;
+  $('#aC').onclick=()=>$('#acctDlg').close();
+  if($('#aDel'))$('#aDel').onclick=()=>{const n=S.txns.filter(t=>t.account===id||t.toAccount===id).length;
+    if(confirm(n?`This also deletes ${n} transactions in this account. Consider archiving instead. Delete anyway?`:'Delete this account?')){
+      S.txns=S.txns.filter(t=>t.account!==id&&t.toAccount!==id);S.accounts=S.accounts.filter(x=>x.id!==id);save();$('#acctDlg').close();render()}};
+  $('#aForm').onsubmit=()=>{
+    const r={id:a.id||uid(),name:$('#aN').value.trim(),type:$('#aT').value,opening:parseFloat($('#aO').value)||0,openingDate:$('#aD').value,archived:$('#aA')?$('#aA').checked:false};
+    if(a.id)S.accounts=S.accounts.map(x=>x.id===a.id?r:x);else S.accounts.push(r);
+    save();render()};
+  $('#acctDlg').showModal();
+}
+
+/* ================= Settings ================= */
+function viewSettings(){
+  const s=S.settings;
+  const catRow=c=>`<tr data-id="${c.id}"><td style="width:46px"><input type="color" value="${c.color}" data-f="color" style="padding:0;height:30px"></td>
+    <td><input value="${esc(c.name)}" data-f="name"></td><td style="width:110px"><select data-f="type"><option value="expense" ${c.type==='expense'?'selected':''}>Expense</option><option value="income" ${c.type==='income'?'selected':''}>Income</option></select></td>
+    <td style="width:110px"><input type="number" min="0" step="1" value="${c.budget||''}" placeholder="Budget" data-f="budget"></td><td class="actions"><button class="danger sm" data-del="${c.id}">✕</button></td></tr>`;
+  $('#view').innerHTML=`
+  <div class="grid g2">
+  <div class="card"><h3>Preferences</h3><div class="row">
+    <div><label>Currency (ISO code)</label><input id="sCur" value="${esc(s.currency)}" maxlength="3"></div>
+    <div><label>Theme</label><select id="sTh">${['auto','light','dark'].map(t=>`<option ${t===s.theme?'selected':''}>${t}</option>`).join('')}</select></div></div></div>
+  <div class="card"><h3>Download &amp; backup</h3><div class="row">
+    <button class="btn" id="xXlsx">Excel (.xlsx)</button><button class="ghost" id="xCsv">Transactions CSV</button>
+    <button class="ghost" id="xJson">Backup JSON</button><button class="ghost" id="xImp">Restore backup</button><input type="file" id="fImp" accept=".json" hidden></div>
+    <p class="note">Data lives in this browser (localStorage). Download a backup now and then, or turn on Google Sheets sync below.</p></div>
+  </div>
+  <div class="card" style="margin-top:12px"><h3>Categories <span class="sub" style="text-transform:none">· monthly budget is optional</span></h3>
+    <table><tbody id="cats">${S.categories.map(catRow).join('')}</tbody></table>
+    <div class="row" style="margin-top:10px"><button class="ghost auto" id="addCat">+ Add category</button></div></div>
+  <div class="card" style="margin-top:12px"><h3>Google Sheets sync</h3>
+    <div class="row"><div style="flex:3"><label>Apps Script web app URL</label><input id="sUrl" value="${esc(s.syncUrl)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <div><label>Secret token</label><input id="sTok" value="${esc(s.syncToken)}" placeholder="same as in script"></div></div>
+    <div class="row" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink);margin:0"><input type="checkbox" id="sAuto" style="width:auto" ${s.autoSync?'checked':''}> Auto-push after each change</label>
+    <button class="ghost auto" id="bPull">Pull from Sheet</button><button class="btn auto" id="bPush">Push to Sheet</button></div>
+    <p class="note">Your Google Sheet becomes the backend: the full dataset is stored in a hidden tab, and readable “Transactions” and “Accounts” tabs are rewritten on every push. Pull replaces local data with the sheet’s. Setup script:</p>
+    <pre id="gs">${esc(APPS_SCRIPT)}</pre><button class="ghost sm" id="cpGs">Copy script</button>
+    <ol class="note"><li>Create a Google Sheet → Extensions → Apps Script → paste the script, set your own <code>TOKEN</code>.</li><li>Deploy → New deployment → type “Web app” → Execute as <b>Me</b>, access <b>Anyone</b> → copy the URL here.</li><li>The token is the only thing protecting the sheet, so make it long and random.</li></ol></div>
+  <div class="card" style="margin-top:12px"><h3>Danger zone</h3><button class="danger" id="wipe">Erase all local data</button></div>`;
+  const stg=()=>{s.currency=($('#sCur').value||'USD').toUpperCase();s.theme=$('#sTh').value;s.syncUrl=$('#sUrl').value.trim();s.syncToken=$('#sTok').value.trim();s.autoSync=$('#sAuto').checked;save(false)};
+  ['sCur','sTh','sUrl','sTok','sAuto'].forEach(i=>$('#'+i).onchange=()=>{try{stg();render()}catch(e){toast('Invalid currency code');}});
+  $('#cats').onchange=e=>{const tr=e.target.closest('tr'),c=cat(tr.dataset.id),f=e.target.dataset.f;if(!c||!f)return;
+    c[f]=f==='budget'?(parseFloat(e.target.value)||0):e.target.value;save()};
+  $('#cats').onclick=e=>{const id=e.target.dataset.del;if(!id)return;const n=S.txns.filter(t=>t.category===id).length;
+    if(confirm(n?`${n} transactions use this category; they'll become uncategorized. Delete?`:'Delete category?')){S.txns.forEach(t=>{if(t.category===id)t.category=''});S.categories=S.categories.filter(c=>c.id!==id);save();render()}};
+  $('#addCat').onclick=()=>{S.categories.push({id:uid(),name:'New category',type:'expense',color:'#888888',budget:0});save();render()};
+  $('#xXlsx').onclick=exportXlsx;$('#xCsv').onclick=exportCsv;$('#xJson').onclick=()=>dl(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),`ledger-backup-${today()}.json`);
+  $('#xImp').onclick=()=>$('#fImp').click();
+  $('#fImp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!j.accounts||!j.txns)throw 0;
+    if(confirm('Replace all current data with this backup?')){S=Object.assign(defaultState(),j);save();render();toast('Restored')}}catch{toast('Not a valid backup file')}};
+  $('#bPush').onclick=()=>{stg();push(false)};$('#bPull').onclick=()=>{stg();pull(false)};
+  $('#cpGs').onclick=()=>navigator.clipboard.writeText(APPS_SCRIPT).then(()=>toast('Copied'));
+  $('#wipe').onclick=()=>{if(confirm('Erase everything in this browser? (Sheet data is untouched)')&&confirm('Really erase?')){S=defaultState();save();render()}};
+}
+
+/* ================= Export ================= */
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function txRows(){return [...S.txns].sort((a,b)=>a.date<b.date?-1:1).map(t=>({Date:t.date,Type:t.type,Payee:t.payee||'',Category:cat(t.category)?.name||'',Account:acct(t.account)?.name||'','To account':acct(t.toAccount)?.name||'',Amount:t.type==='expense'?-t.amount:t.amount,Status:t.status,Note:t.note||''}))}
+function exportXlsx(){
+  if(typeof XLSX==='undefined'){toast('Excel library did not load (offline?)');return}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(txRows()),'Transactions');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(S.accounts.map(a=>{const b=balances(a);return{Account:a.name,Type:a.type,'Opening balance':a.opening,'As of':a.openingDate,'Cleared balance':b.cleared,Pending:b.pending,Projected:b.projected,Archived:a.archived?'yes':''}})),'Accounts');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(S.categories.map(c=>({Category:c.name,Type:c.type,'Monthly budget':c.budget||''}))),'Categories');
+  const months=[...new Set(S.txns.map(t=>monthOf(t.date)))].sort();
+  const sum=S.categories.filter(c=>c.type==='expense').map(c=>{const r={Category:c.name};months.forEach(m=>r[m]=S.txns.filter(t=>t.type==='expense'&&t.category===c.id&&monthOf(t.date)===m).reduce((s,t)=>s+t.amount,0));return r});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sum),'Monthly by category');
+  XLSX.writeFile(wb,`ledger-${today()}.xlsx`);
+}
+function exportCsv(){
+  const rows=txRows();if(!rows.length){toast('No transactions yet');return}
+  const h=Object.keys(rows[0]),q=v=>`"${String(v).replace(/"/g,'""')}"`;
+  dl(new Blob([[h.map(q).join(','),...rows.map(r=>h.map(k=>q(r[k])).join(','))].join('\n')],{type:'text/csv'}),`transactions-${today()}.csv`);
+}
+
+/* ================= Google Sheets sync ================= */
+async function push(silent){
+  const s=S.settings;if(!s.syncUrl){toast('Add your Apps Script URL first');return}
+  try{
+    const payload={token:s.syncToken,state:S,
+      accounts:[['Account','Type','Opening balance','As of','Cleared','Pending','Projected'],...S.accounts.map(a=>{const b=balances(a);return[a.name,a.type,a.opening,a.openingDate,b.cleared,b.pending,b.projected]})],
+      txns:[['Date','Type','Payee','Category','Account','To account','Amount','Status','Note'],...txRows().map(r=>Object.values(r))]};
+    const r=await fetch(s.syncUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
+    const j=await r.json();if(!j.ok)throw new Error(j.error||'rejected');
+    if(!silent)toast('Pushed to Google Sheet');
+  }catch(e){toast('Push failed: '+e.message)}
+}
+async function pull(silent){
+  const s=S.settings;if(!s.syncUrl)return;
+  try{
+    const r=await fetch(s.syncUrl+(s.syncUrl.includes('?')?'&':'?')+'token='+encodeURIComponent(s.syncToken));
+    const j=await r.json();if(j.error)throw new Error(j.error);if(!j.accounts)throw new Error('Sheet is empty — push first');
+    if(silent){if((j.updatedAt||0)<=S.updatedAt)return}
+    else if(!confirm('Replace local data with the Google Sheet version?'))return;
+    const keep=S.settings;S=Object.assign(defaultState(),j);S.settings=keep;save(false);render();toast('Pulled from Google Sheet');
+  }catch(e){toast('Pull failed: '+e.message)}
+}
+
+const APPS_SCRIPT=`// Ledger backend — paste into Extensions > Apps Script, then Deploy > Web app
+const TOKEN = 'change-me-to-a-long-random-string';
+const CHUNK = 40000;
+
+function doGet(e) {
+  if ((e.parameter.token || '') !== TOKEN) return out({error: 'bad token'});
+  const sh = sheet('_data');
+  const vals = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues();
+  const txt = vals.map(r => r[0]).join('');
+  return ContentService.createTextOutput(txt || '{}').setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  const p = JSON.parse(e.postData.contents);
+  if (p.token !== TOKEN) return out({ok: false, error: 'bad token'});
+  const data = JSON.stringify(p.state);
+  const sh = sheet('_data');
+  sh.clearContents();
+  const rows = [];
+  for (let i = 0; i < data.length; i += CHUNK) rows.push([data.slice(i, i + CHUNK)]);
+  sh.getRange(1, 1, rows.length, 1).setValues(rows);
+  write('Accounts', p.accounts);
+  write('Transactions', p.txns);
+  return out({ok: true});
+}
+
+function write(name, rows) {
+  const sh = sheet(name);
+  sh.clearContents();
+  if (rows && rows.length) sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+  sh.setFrozenRows(1);
+}
+function sheet(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(name) || ss.insertSheet(name);
+}
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}`;
+
+/* ================= Boot ================= */
+$('#addBtn').onclick=()=>openTx();
+document.addEventListener('keydown',e=>{if(e.key==='n'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)&&!document.querySelector('dialog[open]')){e.preventDefault();openTx()}});
+render();
+if(S.settings.syncUrl&&S.settings.autoSync)pull(true);
+</script>
+</body>
+</html>
