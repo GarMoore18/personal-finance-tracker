@@ -33,3 +33,12 @@ The token is the only protection for the sheet — never commit your real token 
 ## Data
 
 Without sync, data lives in the browser's localStorage. Use Settings → Backup JSON regularly.
+
+## Tests
+
+Headless-browser tests cover balances, pending/cleared, transfers, validation and import hardening:
+
+```
+pip install playwright && playwright install chromium
+python3 tests/test_ledger.py        # set CHROME_PATH to use an existing Chrome
+```

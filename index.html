@@ -95,8 +95,30 @@ const defaultState=()=>({
   ].map(([name,type,color,budget])=>({id:uid(),name,type,color,budget})),
   txns:[]
 });
+const ACCT_TYPES=['Checking','Savings','Credit card','Cash','Investment','Loan','Other'];
+const validCurrency=c=>{try{new Intl.NumberFormat(undefined,{style:'currency',currency:c});return /^[A-Z]{3}$/.test(c)}catch{return false}};
+/* Validate/sanitize any state coming from localStorage, a backup file or the Google Sheet.
+   Guarantees safe ids, numeric amounts, valid dates/colors/enums so rendering never breaks or injects markup. */
+function normalize(j){
+  if(!j||typeof j!=='object')return defaultState();
+  const d=defaultState();
+  const sid=v=>String(v??'').replace(/[^\w-]/g,'').slice(0,40);
+  const str=(v,n=200)=>String(v??'').slice(0,n);
+  const num=v=>{const x=parseFloat(v);return isFinite(x)?x:0};
+  const dt=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?v:today();
+  const hex=v=>/^#[0-9a-fA-F]{6}$/.test(v)?v:'#888888';
+  const arr=v=>Array.isArray(v)?v:[];
+  const o={version:1,updatedAt:+j.updatedAt||0};
+  o.settings={...d.settings,...(j.settings&&typeof j.settings==='object'?j.settings:{})};
+  if(!validCurrency(o.settings.currency))o.settings.currency='USD';
+  if(!['auto','light','dark'].includes(o.settings.theme))o.settings.theme='auto';
+  o.accounts=arr(j.accounts).map(a=>({id:sid(a.id)||uid(),name:str(a.name,80),type:ACCT_TYPES.includes(a.type)?a.type:'Other',opening:num(a.opening),openingDate:dt(a.openingDate),archived:!!a.archived}));
+  o.categories=Array.isArray(j.categories)?j.categories.map(c=>({id:sid(c.id)||uid(),name:str(c.name,60),type:c.type==='income'?'income':'expense',color:hex(c.color),budget:Math.max(0,num(c.budget))})):d.categories;
+  o.txns=arr(j.txns).filter(t=>t&&['expense','income','transfer'].includes(t.type)).map(t=>({id:sid(t.id)||uid(),date:dt(t.date),amount:Math.abs(num(t.amount)),type:t.type,account:sid(t.account),toAccount:t.type==='transfer'?sid(t.toAccount):'',category:t.type==='transfer'?'':sid(t.category),payee:str(t.payee,120),note:str(t.note,300),status:t.status==='pending'?'pending':'cleared'}));
+  return o;
+}
 let S=load();
-function load(){try{const r=localStorage.getItem(KEY);if(r)return Object.assign(defaultState(),JSON.parse(r))}catch(e){}return defaultState()}
+function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r))}catch(e){}return defaultState()}
 let pushTimer=null;
 function save(touch=true){
   if(touch)S.updatedAt=Date.now();
@@ -119,9 +141,13 @@ function effect(t,accountId){ // signed effect of txn t on account
   if(t.type==='transfer'){let e=0;if(t.account===accountId)e-=t.amount;if(t.toAccount===accountId)e+=t.amount;return e}
   return 0;
 }
+/* A transaction dated before an account's "as of" date is already baked into that account's opening
+   balance, so it must not be counted again. */
+const beforeOpen=(t,accountId)=>{const a=acct(accountId);return !!a&&!!a.openingDate&&t.date<a.openingDate};
 function balances(a){
   let cleared=+a.opening||0,pending=0;
   for(const t of S.txns){
+    if(beforeOpen(t,a.id))continue;
     const e=effect(t,a.id);if(!e)continue;
     if(t.status==='pending')pending+=e;else cleared+=e;
   }
@@ -197,7 +223,7 @@ function txTable(list,actions=true){
       <td class="hide-m">${t.type==='transfer'?'<span class="sub">Transfer</span>':`<span class="dot" style="background:${c?c.color:'#999'}"></span>${esc(c?c.name:'—')}`}</td>
       <td class="hide-m">${esc(a?a.name:'?')}${t.type==='transfer'?' → '+esc(to?to.name:'?'):''}</td>
       <td class="num ${amtCls}">${sign}${fmt(t.amount)}</td>
-      <td>${t.status==='pending'?`<span class="tag p">Pending</span>`:`<span class="tag">Cleared</span>`}</td>
+      <td>${t.status==='pending'?`<span class="tag p">Pending</span>`:`<span class="tag">Cleared</span>`}${beforeOpen(t,t.account)||(t.type==='transfer'&&beforeOpen(t,t.toAccount))?`<div class="sub" title="Dated before an account's start date, so it is already included in that account's opening balance">not counted</div>`:''}</td>
       ${actions?`<td class="actions">${t.status==='pending'?`<button class="btn sm" onclick="clearTx('${t.id}')">Clear</button>`:''}<button class="ghost sm" onclick="openTx('${t.id}')">Edit</button></td>`:''}</tr>`}).join('')}
   </tbody></table></div>`;
 }
@@ -249,6 +275,7 @@ function drawTx(){
     <div class="seg">${['expense','income','transfer'].map(t=>`<button type="button" data-ty="${t}" class="${d.type===t?'on':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>
     <div class="row"><div><label>Amount</label><input id="tA" type="number" step="0.01" min="0" inputmode="decimal" value="${d.amount}" required autofocus></div>
     <div><label>Date</label><input id="tD" type="date" value="${d.date}" required></div></div>
+    ${beforeOpen(d,d.account)?`<div class="note pend" style="margin:-4px 0 0">This date is before ${esc(acct(d.account).name)}’s start date (${acct(d.account).openingDate}), so it won’t change that account’s balance.</div>`:''}
     <div class="row"><div><label>${isT?'From account':'Account'}</label><select id="tAc">${acc.map(a=>`<option value="${a.id}" ${a.id===d.account?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
     ${isT?`<div><label>To account</label><select id="tTo">${acc.filter(a=>a.id!==d.account).map(a=>`<option value="${a.id}" ${a.id===d.toAccount?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>`
          :`<div><label>Category</label><select id="tC">${cats.map(c=>`<option value="${c.id}" ${c.id===d.category?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`}</div>
@@ -262,8 +289,9 @@ function drawTx(){
     d.amount=$('#tA').value;d.date=$('#tD').value;d.account=$('#tAc').value;d.payee=$('#tP').value;d.note=$('#tN').value;
     if($('#tC'))d.category=$('#tC').value;if($('#tTo'))d.toAccount=$('#tTo').value};
   form.onclick=e=>{const b=e.target.closest('button');if(!b)return;
-    if(b.dataset.ty){pull();d.type=b.dataset.ty;if(d.type==='transfer'){d.category='';d.toAccount=S.accounts.find(a=>a.id!==d.account)?.id||''}drawTx()}
+    if(b.dataset.ty){pull();d.type=b.dataset.ty;if(d.type==='transfer'){d.category='';d.toAccount=S.accounts.find(a=>a.id!==d.account)?.id||''}else d.toAccount='';drawTx()}
     if(b.dataset.st){pull();d.status=b.dataset.st;drawTx()}};
+  $('#tD').onchange=()=>{pull();drawTx()};
   $('#tAc').onchange=()=>{pull();if(d.type==='transfer'&&d.toAccount===d.account)d.toAccount='';drawTx()};
   $('#tCancel').onclick=()=>$('#txDlg').close();
   if($('#tDel'))$('#tDel').onclick=()=>{if(confirm('Delete this transaction?')){S.txns=S.txns.filter(t=>t.id!==d.id);save();$('#txDlg').close();render()}};
@@ -276,7 +304,6 @@ function drawTx(){
 }
 
 /* ================= Accounts ================= */
-const ACCT_TYPES=['Checking','Savings','Credit card','Cash','Investment','Loan','Other'];
 function viewAccts(){
   const act=S.accounts.filter(a=>!a.archived),arc=S.accounts.filter(a=>a.archived);
   const card=a=>{const b=balances(a);return `<div class="card">
@@ -287,7 +314,7 @@ function viewAccts(){
   $('#view').innerHTML=`<div class="row" style="margin-bottom:12px"><h2 style="margin:0">Accounts</h2><button class="btn auto" onclick="openAcct()">+ New account</button></div>
   ${act.length?`<div class="grid g2">${act.map(card).join('')}</div>`:'<div class="card empty">No accounts yet.</div>'}
   ${arc.length?`<h3 class="sub" style="margin-top:20px">Archived</h3><div class="grid g2">${arc.map(card).join('')}</div>`:''}
-  <p class="note">Opening balance = what the account held on its “as of” date. Cleared balance = opening + all cleared transactions. Pending transactions show separately until you clear them. For credit cards and loans, enter what you owe as a negative opening balance.</p>`;
+  <p class="note">Opening balance = what the account held at the start of its “as of” date. Cleared balance = opening + cleared transactions dated on or after that date (older ones are already in the opening balance, so they’re marked “not counted”). Pending transactions show separately until you clear them. For credit cards and loans, enter what you owe as a negative opening balance.</p>`;
 }
 function openAcct(id){
   const a=id?acct(id):{id:'',name:'',type:'Checking',opening:0,openingDate:today(),archived:false};
@@ -337,7 +364,7 @@ function viewSettings(){
     <pre id="gs">${esc(APPS_SCRIPT)}</pre><button class="ghost sm" id="cpGs">Copy script</button>
     <ol class="note"><li>Create a Google Sheet → Extensions → Apps Script → paste the script, set your own <code>TOKEN</code>.</li><li>Deploy → New deployment → type “Web app” → Execute as <b>Me</b>, access <b>Anyone</b> → copy the URL here.</li><li>The token is the only thing protecting the sheet, so make it long and random.</li></ol></div>
   <div class="card" style="margin-top:12px"><h3>Danger zone</h3><button class="danger" id="wipe">Erase all local data</button></div>`;
-  const stg=()=>{s.currency=($('#sCur').value||'USD').toUpperCase();s.theme=$('#sTh').value;s.syncUrl=$('#sUrl').value.trim();s.syncToken=$('#sTok').value.trim();s.autoSync=$('#sAuto').checked;save(false)};
+  const stg=()=>{const cur=($('#sCur').value||'USD').toUpperCase();if(validCurrency(cur))s.currency=cur;else toast('Invalid currency code — keeping '+s.currency);s.theme=$('#sTh').value;s.syncUrl=$('#sUrl').value.trim();s.syncToken=$('#sTok').value.trim();s.autoSync=$('#sAuto').checked;save(false)};
   ['sCur','sTh','sUrl','sTok','sAuto'].forEach(i=>$('#'+i).onchange=()=>{try{stg();render()}catch(e){toast('Invalid currency code');}});
   $('#cats').onchange=e=>{const tr=e.target.closest('tr'),c=cat(tr.dataset.id),f=e.target.dataset.f;if(!c||!f)return;
     c[f]=f==='budget'?(parseFloat(e.target.value)||0):e.target.value;save()};
@@ -347,7 +374,7 @@ function viewSettings(){
   $('#xXlsx').onclick=exportXlsx;$('#xCsv').onclick=exportCsv;$('#xJson').onclick=()=>dl(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),`ledger-backup-${today()}.json`);
   $('#xImp').onclick=()=>$('#fImp').click();
   $('#fImp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!j.accounts||!j.txns)throw 0;
-    if(confirm('Replace all current data with this backup?')){S=Object.assign(defaultState(),j);save();render();toast('Restored')}}catch{toast('Not a valid backup file')}};
+    if(confirm('Replace all current data with this backup?')){S=normalize(j);save();render();toast('Restored')}}catch{toast('Not a valid backup file')}};
   $('#bPush').onclick=()=>{stg();push(false)};$('#bPull').onclick=()=>{stg();pull(false)};
   $('#cpGs').onclick=()=>navigator.clipboard.writeText(APPS_SCRIPT).then(()=>toast('Copied'));
   $('#wipe').onclick=()=>{if(confirm('Erase everything in this browser? (Sheet data is untouched)')&&confirm('Really erase?')){S=defaultState();save();render()}};
@@ -369,7 +396,8 @@ function exportXlsx(){
 }
 function exportCsv(){
   const rows=txRows();if(!rows.length){toast('No transactions yet');return}
-  const h=Object.keys(rows[0]),q=v=>`"${String(v).replace(/"/g,'""')}"`;
+  // Prefix text cells that start with = + - @ so Excel/Sheets never run them as formulas (numbers are left alone)
+const h=Object.keys(rows[0]),q=v=>{let s=String(v);if(typeof v==='string'&&/^[=+\-@\t\r]/.test(s))s="'"+s;return `"${s.replace(/"/g,'""')}"`};
   dl(new Blob([[h.map(q).join(','),...rows.map(r=>h.map(k=>q(r[k])).join(','))].join('\n')],{type:'text/csv'}),`transactions-${today()}.csv`);
 }
 
@@ -377,7 +405,7 @@ function exportCsv(){
 async function push(silent){
   const s=S.settings;if(!s.syncUrl){toast('Add your Apps Script URL first');return}
   try{
-    const payload={token:s.syncToken,state:S,
+    const payload={token:s.syncToken,state:{...S,settings:undefined},
       accounts:[['Account','Type','Opening balance','As of','Cleared','Pending','Projected'],...S.accounts.map(a=>{const b=balances(a);return[a.name,a.type,a.opening,a.openingDate,b.cleared,b.pending,b.projected]})],
       txns:[['Date','Type','Payee','Category','Account','To account','Amount','Status','Note'],...txRows().map(r=>Object.values(r))]};
     const r=await fetch(s.syncUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
@@ -392,7 +420,7 @@ async function pull(silent){
     const j=await r.json();if(j.error)throw new Error(j.error);if(!j.accounts)throw new Error('Sheet is empty — push first');
     if(silent){if((j.updatedAt||0)<=S.updatedAt)return}
     else if(!confirm('Replace local data with the Google Sheet version?'))return;
-    const keep=S.settings;S=Object.assign(defaultState(),j);S.settings=keep;save(false);render();toast('Pulled from Google Sheet');
+    const keep=S.settings;S=normalize(j);S.settings=keep;save(false);render();toast('Pulled from Google Sheet');
   }catch(e){toast('Pull failed: '+e.message)}
 }
 
