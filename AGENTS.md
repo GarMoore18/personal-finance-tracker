@@ -4,13 +4,13 @@ Ledger is a phone-first personal finance app. The active React, TypeScript, and 
 
 ## Direction and safety
 - Netlify builds `app/` and publishes `dist/`. Production deploys stay manual; preserve the `ignore` rule and do not trigger production deploys unless the owner asks.
-- Server-side function placement remains undecided until #32 records its execution/provider decision. Do not provision services or add provider-specific extraction code before then. Follow ADR 0001 before real financial data is used.
+- ADR 0005 selects Supabase Edge Functions for extraction. #32 tracks provider selection. Keep paid extraction out of the default path. Follow ADR 0001 before real financial data is used.
 - Never commit secrets, environment files, real financial data, service-role keys, or database passwords. Only the owner directs changes to `.github/`.
 
 ## Workflow
 1. Read the issue and direct dependencies only. For design ambiguity, comment with a short plan and options.
 2. Keep one issue per branch/PR/worktree. A session may handle up to three independent issues. Reference the issue in the PR.
-3. For app changes run `npm ci --prefix app`, `npm run build --prefix app`, and `python3 tests/test_owner_sign_in.py` when relevant. Add focused coverage for behavior changes; update related docs.
+3. For app changes run `npm ci --prefix app` and `npm run verify --prefix app` with the documented Node and Chromium prerequisites. Add focused coverage for behavior changes; update related docs.
 4. Merge only after required CI passes and main protection remains enabled.
 
 ## Efficiency
