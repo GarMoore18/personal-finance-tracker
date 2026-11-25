@@ -1,5 +1,10 @@
 [build]
   publish = "."
+  # Manual-deploy mode (see #9): skip builds from main so merges do not spend production-deploy credits.
+  # Exit code 0 = skip the build, 1 = build. Pull-request previews (other branches) still build; they cost 0 credits.
+  # Deploy on purpose with a build hook or the Netlify CLI (Netlify documents that build hooks ignore this rule).
+  # When active development is done, delete the next line to go back to deploying on every push to main.
+  ignore = "[ \"$BRANCH\" = \"main\" ]"
 
 [[headers]]
   for = "/*"
