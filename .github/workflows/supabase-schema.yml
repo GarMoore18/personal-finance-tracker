@@ -30,14 +30,34 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
       - name: Start local Supabase stack
-        run: supabase start
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import socket
+          from pathlib import Path
+
+          config_path = Path("supabase/config.jsonc")
+          config = json.loads(config_path.read_text())
+          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+              sock.bind(("0.0.0.0", 0))
+              port = sock.getsockname()[1]
+          config["db"]["port"] = port
+          config_path.write_text(json.dumps(config, indent=2) + "\n")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"SUPABASE_LOCAL_DB_PORT={port}\n")
+          PY
+          supabase start
       - name: Apply migrations to a clean database
         run: supabase db reset
-      - name: Verify schema, snapshots, and owner isolation
-        run: >-
-          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres
-          -v ON_ERROR_STOP=1
-          -f supabase/checks/financial_schema.sql
+      - name: Verify all schema and owner-isolation checks
+        run: |
+          for sql_file in supabase/checks/*.sql; do
+            echo "Running ${sql_file}"
+            psql "postgresql://postgres:postgres@127.0.0.1:${SUPABASE_LOCAL_DB_PORT}/postgres" \
+              -v ON_ERROR_STOP=1 \
+              -f "${sql_file}"
+          done
       - name: Stop local Supabase stack
         if: always()
         run: supabase stop --no-backup
