@@ -36,7 +36,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function App() {
+export function App({ signOut }: { signOut: ReactNode }) {
   const [page, setPage] = useState(currentPage);
   const [theme, setTheme] = useState(initialTheme);
   const main = useRef<HTMLElement>(null);
@@ -122,21 +122,24 @@ export function App() {
           </Panel>
         )}
         {page.id === 'more' && (
-          <fieldset className="panel appearance">
-            <legend>Appearance</legend>
-            {themes.map((option) => (
-              <label key={option}>
-                <input
-                  type="radio"
-                  name="appearance"
-                  value={option}
-                  checked={theme === option}
-                  onChange={() => changeTheme(option)}
-                />
-                {option}
-              </label>
-            ))}
-          </fieldset>
+          <>
+            <fieldset className="panel appearance">
+              <legend>Appearance</legend>
+              {themes.map((option) => (
+                <label key={option}>
+                  <input
+                    type="radio"
+                    name="appearance"
+                    value={option}
+                    checked={theme === option}
+                    onChange={() => changeTheme(option)}
+                  />
+                  {option}
+                </label>
+              ))}
+            </fieldset>
+            {signOut}
+          </>
         )}
       </main>
     </div>
