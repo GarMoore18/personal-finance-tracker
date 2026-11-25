@@ -83,9 +83,9 @@ def test_sign_in(url, browser):
 
     verification_available = True
     page.get_by_role('button', name='Retry').click()
-    expect(page.get_by_role('heading', name='Accounts')).to_be_visible()
+    expect(page.get_by_role('heading', name='Accounts', exact=True)).to_be_visible()
     page.reload()
-    expect(page.get_by_role('heading', name='Accounts')).to_be_visible()
+    expect(page.get_by_role('heading', name='Accounts', exact=True)).to_be_visible()
     page.get_by_role('link', name='More').click()
     page.get_by_role('button', name='Sign out').click()
     expect(page.get_by_role('heading', name='Sign in')).to_be_visible()
@@ -147,7 +147,7 @@ def test_account_management(url, browser):
     page.get_by_label('Email').fill(USER['email'])
     page.get_by_label('Password').fill(PASSWORD)
     page.get_by_role('button', name='Sign in').click()
-    expect(page.get_by_role('heading', name='Accounts')).to_be_visible()
+    expect(page.get_by_role('heading', name='Accounts', exact=True)).to_be_visible()
 
     page.get_by_role('button', name='Add group').click()
     page.get_by_label('Group name').fill('Banking')
