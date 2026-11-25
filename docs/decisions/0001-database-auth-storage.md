@@ -34,19 +34,8 @@ This record does **not** decide hosting (#70) or the frontend stack (#3). Nothin
 ## Exit path
 Standard PostgreSQL: export with a regular dump and restore into another Postgres host. Keep schema and migrations in this repo so the schema is never only in a provider dashboard.
 
-## Initial data model (high level sketch, finalized in #5)
-All tables carry `user_id uuid default auth.uid()` and an RLS policy allowing a user to read and write only their own rows. Money is `numeric(14,2)` (USD only), never floating point. Timestamps: `created_at`, `updated_at`.
-
-| Table | Purpose | Key columns |
-|---|---|---|
-| `account_groups` | Banking, Retirement, Investments, Debt | name, sort_order |
-| `accounts` | Individual accounts | group_id, name, kind (`asset` or `liability`), current_balance |
-| `balance_snapshots` | Monthly history | account_id, month (first of month), balance; unique (account_id, month) |
-| `categories` | Flat categories | name, color, icon, sort_order |
-| `transactions` | Expenses | occurred_on (date), amount (> 0), description (required), category_id, notes |
-
-Net worth = sum of asset balances minus sum of liability balances, computed per account so groups never double count.
-Assigning an account to an expense is deferred; add a nullable `account_id` later via a migration.
+## Initial data model
+See [ADR 0004](0004-core-financial-model.md) for the accepted financial model and invariants.
 
 ## Migration approach
 - SQL migrations live in `supabase/migrations/`, committed and reviewed like code (Supabase CLI).
