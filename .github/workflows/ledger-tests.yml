@@ -23,17 +23,6 @@ jobs:
         run: python -m pip install playwright
       - name: Install Chromium
         run: python -m playwright install --with-deps chromium
-      - name: Run Ledger tests
-        run: python3 tests/test_ledger.py
-      - name: Run owner sign-in browser tests
-        run: python3 tests/test_owner_sign_in.py
-
-  app-build:
-    name: App typecheck and production build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22.12.0"
@@ -46,3 +35,7 @@ jobs:
           LEDGER_SUPABASE_URL: https://example.supabase.co
           LEDGER_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
         run: npm run build --prefix app
+      - name: Run Ledger tests
+        run: python3 tests/test_ledger.py
+      - name: Run owner sign-in browser tests
+        run: python3 tests/test_owner_sign_in.py
