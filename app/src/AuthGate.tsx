@@ -132,7 +132,7 @@ function OwnerSession({ client }: { client: SupabaseClient }) {
   );
 
   if (session === null || (session && !account)) return <SignIn client={client} />;
-  if (account && verifiedAccount === account) return <App signOut={signOutButton} />;
+  if (account && verifiedAccount === account) return <App signOut={signOutButton} client={client} />;
 
   return (
     <AccessPanel>

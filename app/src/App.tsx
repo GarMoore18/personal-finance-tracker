@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { AccountsPage } from './AccountsPage';
 
 const pages = [
   { id: 'home', label: 'Home', heading: 'Home' },
@@ -36,7 +38,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function App({ signOut }: { signOut: ReactNode }) {
+export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseClient }) {
   const [page, setPage] = useState(currentPage);
   const [theme, setTheme] = useState(initialTheme);
   const main = useRef<HTMLElement>(null);
@@ -116,11 +118,7 @@ export function App({ signOut }: { signOut: ReactNode }) {
           </Panel>
         )}
         {page.id === 'add' && <p>Expense entry is coming in a later update.</p>}
-        {page.id === 'accounts' && (
-          <Panel title="Balances">
-            <p>Account management and balance history are coming in a later update.</p>
-          </Panel>
-        )}
+        {page.id === 'accounts' && <AccountsPage client={client} />}
         {page.id === 'more' && (
           <>
             <fieldset className="panel appearance">
