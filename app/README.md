@@ -37,7 +37,7 @@ Apply the [database setup](../docs/DATABASE.md) in a local Supabase stack. Creat
 
 Keep self-registration and anonymous sign-ins disabled in Supabase. The shell gate controls navigation and PostgreSQL row-level security controls data access. Verify both with synthetic accounts before connecting a hosted project.
 
-Run the browser check with synthetic configuration. Playwright intercepts the Auth API calls.
+Accounts can be grouped, classified as assets or liabilities, and archived for safekeeping; account history is preserved, and new accounts require a starting balance observation. The account management browser check uses a synthetic Auth and REST fixture for UI behavior. It does not exercise RLS; the Supabase SQL workflow owns those checks.
 
 ```sh
 LEDGER_SUPABASE_URL=https://ledger-test.supabase.co LEDGER_SUPABASE_PUBLISHABLE_KEY=sb_publishable_test-only npm run build --prefix app

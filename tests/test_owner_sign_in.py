@@ -96,6 +96,103 @@ def test_sign_in(url, browser):
     print('PASS owner sign-in, verification retry, session reload, and sign-out')
 
 
+def test_account_management(url, browser):
+    """Synthetic REST fixture covers UI behavior, not Supabase RLS."""
+    page = browser.new_page(viewport={'width': 390, 'height': 844})
+    errors, writes, groups, accounts = [], [], [], []
+    next_id = 1
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    token = '.'.join([encode({'alg': 'HS256', 'typ': 'JWT'}),
+                     encode({'sub': USER['id'], 'exp': int(time.time()) + 3600}),
+                     encode('synthetic signature')])
+
+    def api(route):
+        nonlocal next_id
+        req = route.request
+        path = urlsplit(req.url).path
+        headers = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*',
+                   'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+                   'Content-Type': 'application/json'}
+        if req.method == 'OPTIONS':
+            route.fulfill(status=204, headers=headers)
+        elif path == '/auth/v1/token':
+            route.fulfill(status=200, headers=headers, json={
+                'access_token': token, 'token_type': 'bearer', 'expires_in': 3600,
+                'refresh_token': 'synthetic-refresh-token', 'user': USER})
+        elif path == '/auth/v1/user':
+            route.fulfill(status=200, headers=headers, json=USER)
+        elif path.startswith('/rest/v1/'):
+            table = path.rsplit('/', 1)[-1]
+            rows = groups if table == 'account_groups' else accounts
+            if req.method == 'GET':
+                route.fulfill(status=200, headers=headers, json=rows)
+            else:
+                payload = req.post_data_json or {}
+                writes.append((table, req.method, payload))
+                if req.method == 'POST':
+                    row = {'id': f'synthetic-{next_id}', 'sort_order': len(groups)} if table == 'account_groups' else {'id': f'synthetic-{next_id}', 'archived_at': None}
+                    next_id += 1
+                    row.update(payload)
+                    rows.append(row)
+                    route.fulfill(status=201, headers=headers, body='')
+                else:
+                    row_id = urlsplit(req.url).query.split('id=eq.', 1)[1].split('&', 1)[0]
+                    next(row for row in rows if row['id'] == row_id).update(payload)
+                    route.fulfill(status=204, headers=headers, body='')
+        else:
+            route.fulfill(status=204, headers=headers, body='')
+
+    page.route(ORIGIN + '/**', api)
+    page.goto(url + '#/accounts')
+    page.get_by_label('Email').fill(USER['email'])
+    page.get_by_label('Password').fill(PASSWORD)
+    page.get_by_role('button', name='Sign in').click()
+    expect(page.get_by_role('heading', name='Accounts')).to_be_visible()
+
+    page.get_by_role('button', name='Add group').click()
+    page.get_by_label('Group name').fill('Banking')
+    page.get_by_role('button', name='Create group').click()
+    group = groups[0]
+    expect(page.get_by_role('heading', name='Banking')).to_be_visible()
+    page.get_by_role('button', name='Add account').click()
+    expect(page.get_by_label('Starting balance')).to_have_value('0.00')
+    page.get_by_label('Account name').fill('Everyday checking')
+    page.get_by_label('Group').select_option(group['id'])
+    page.get_by_label('Starting balance').fill('125.25')
+    page.get_by_role('button', name='Create account').click()
+    expect(page.get_by_text('Everyday checking')).to_be_visible()
+    account = accounts[0]
+    assert account['current_balance'] == 125.25 and 'balance_observed_on' in account
+    assert all('user_id' not in payload for _, _, payload in writes)
+
+    page.get_by_role('button', name='Add account').click()
+    page.get_by_label('Account name').fill('Cash reserve')
+    page.get_by_role('button', name='Create account').click()
+    expect(page.get_by_text('Cash reserve')).to_be_visible()
+    assert accounts[1]['group_id'] is None
+    today = page.evaluate("(() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')).join('-'); })()")
+    assert account['balance_observed_on'] == today
+
+    page.get_by_role('button', name='Rename').click()
+    page.locator('input[id^="rename-"]').fill('Daily banking')
+    page.get_by_role('button', name='Save group').click()
+    expect(page.get_by_role('heading', name='Daily banking')).to_be_visible()
+    page.get_by_role('button', name='Edit Everyday checking').click()
+    page.get_by_label('Account name').fill('Joint checking')
+    page.get_by_label('Classification').select_option('liability')
+    page.get_by_role('button', name='Save changes').click()
+    expect(page.get_by_text('Joint checking')).to_be_visible()
+    page.get_by_role('button', name='Archive', exact=True).click()
+    expect(page.get_by_role('heading', name='Archived accounts')).to_be_visible()
+    page.get_by_role('button', name='Restore').click()
+    expect(page.get_by_role('button', name='Edit Joint checking')).to_be_visible()
+    assert all(method != 'DELETE' for _, method, _ in writes)
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    assert not errors, errors
+    print('PASS account grouping, create/edit, archive/restore, mobile overflow, and no JavaScript errors')
+    page.close()
+
+
 if __name__ == '__main__':
     assert (DIST / 'index.html').is_file(), 'Build app/dist with the documented synthetic configuration.'
     with ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=DIST)) as server:
@@ -104,5 +201,6 @@ if __name__ == '__main__':
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(**chrome)
             test_sign_in(f'http://127.0.0.1:{server.server_port}/', browser)
+            test_account_management(f'http://127.0.0.1:{server.server_port}/', browser)
             browser.close()
         server.shutdown()
