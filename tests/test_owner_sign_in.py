@@ -170,7 +170,7 @@ def test_account_management(url, browser):
     page.get_by_role('button', name='Create account').click()
     expect(page.get_by_text('Cash reserve')).to_be_visible()
     assert accounts[1]['group_id'] is None
-    today = page.evaluate("(() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')).join('-'); })()")
+    today = page.evaluate("(() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); })()")
     assert account['balance_observed_on'] == today
 
     page.get_by_role('button', name='Rename').click()
