@@ -1,9 +1,8 @@
 # Session handoff
 
-- Issue:
-- Branch / PR:
-- Status:
-- Completed:
-- Checks:
-- Next step:
+- Issues:
+  - # — status; changed paths; checks; blocker or next step
+- Branches / PRs:
+  - # — branch / PR link
+- Session summary:
 - Usage estimate:
