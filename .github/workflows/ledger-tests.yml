@@ -25,6 +25,8 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Run Ledger tests
         run: python3 tests/test_ledger.py
+      - name: Run owner sign-in browser tests
+        run: python3 tests/test_owner_sign_in.py
 
   app-build:
     name: App typecheck and production build
