@@ -440,3 +440,16 @@ button:disabled {
 @media (min-width: 44rem) {
   .overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.activity-day li { flex-wrap: wrap; }
+.activity-day li > div:first-child { flex: 1; }
+.activity-day li .expense-panel { flex-basis: 100%; }
+.activity-expense-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: end; gap: var(--space-1); }
+.expense-edit-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.expense-confirm-delete { margin-top: var(--space-2); }
+.expense-delete { color: #9e302a; }
+.expense-delete-primary { background: #a12d28; color: #fff; }
+:root[data-theme='dark'] .expense-delete { color: #ffa29d; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .expense-delete { color: #ffa29d; }
+}

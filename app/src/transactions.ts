@@ -7,6 +7,8 @@ export type Transaction = {
   occurred_on: string;
   description: string;
   amount: number;
+  category_id: string;
+  notes: string | null;
   categories: { name: string } | null;
 };
 export type Day = { date: string; total: bigint; transactions: Transaction[] };
@@ -17,7 +19,7 @@ export const dayLabel = new Intl.DateTimeFormat(undefined, {
 
 
 export function transactionQuery(client: SupabaseClient) {
-  return client.from('transactions').select('id, occurred_on, description, amount, categories(name)')
+  return client.from('transactions').select('id, occurred_on, description, amount, category_id, notes, categories(name)')
     .order('occurred_on', { ascending: false }).order('created_at', { ascending: false }).order('id');
 }
 
