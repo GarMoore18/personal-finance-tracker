@@ -9,7 +9,18 @@ npm run dev --prefix app
 
 The shell includes responsive navigation, shared surface and typography tokens, and a System, Light, or Dark preference saved on this device. Hash navigation supports direct links and browser back without a host rewrite. The static build is written to `app/dist`.
 
-Owner sign-in uses a Supabase email and password account created administratively. Workflow implementation and cloud data access are tracked in GitHub. The existing Netlify project serves the root prototype until the replacement is ready and the deployment changes in #9.
+## Netlify deployment
+
+The root `netlify.toml` builds from this `app/` directory with `npm run build` and publishes `dist/`. Netlify uses Node 22.12.0. The `main` branch remains in manual-deploy mode while the app is under development.
+
+In Netlify Project configuration → Environment variables, configure these for each deploy context:
+
+- **Deploy Previews:** URL and publishable key for a test Supabase project.
+- **Production:** URL and publishable key for the production Supabase project.
+
+The production build intentionally fails when either public setting is missing or invalid. Both values are public browser configuration, but keep them out of Git so each environment can use its own project. Never put Supabase secret keys, service-role keys, database passwords, or provider tokens in these variables.
+
+Owner sign-in uses a Supabase email and password account created administratively. Create users only in the trusted Supabase dashboard; self-registration and anonymous sign-ins stay disabled. Verify production access and persistence before entering real financial data.
 
 ## Public Supabase configuration
 
@@ -20,11 +31,9 @@ Copy `.env.example` to `app/.env.local` and set:
 | `LEDGER_SUPABASE_URL` | Local API origin from `supabase status`, or the HTTPS project origin |
 | `LEDGER_SUPABASE_PUBLISHABLE_KEY` | The matching `sb_publishable_` key |
 
-Set the same variables as Netlify build environment variables when #9 switches the build to this app. Scope development and preview builds to a test project and production to its own project. Both values are public browser configuration.
+Vite injects only the Supabase URL and publishable key from these variables. Automatic environment-variable exposure is disabled.
 
-Keep Supabase secret keys, service-role keys, database passwords, and provider tokens in trusted server-side configuration. Vite injects only the Supabase URL and publishable key from the variables above. Automatic environment-variable exposure is disabled.
-
-A production build fails on missing or invalid public configuration without printing values. An unconfigured local dev server shows setup instructions and keeps Ledger locked. For a configured local preview:
+An unconfigured local dev server shows setup instructions and keeps Ledger locked. For a configured local preview:
 
 ```sh
 npm run build --prefix app
