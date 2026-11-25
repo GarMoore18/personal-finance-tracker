@@ -3,12 +3,12 @@
 - **Status:** Accepted
 - **Date:** 2026-11-24
 - **Decided by:** Repo owner, after review in issue #70
-- **Related:** #70 (evaluation), #9 (pipeline), ADR 0001 (database, auth, storage), ADR 0002 (frontend)
+- **Related:** #70 (evaluation), #9 (pipeline), ADR 0001 (database, auth, storage), ADR 0002 (frontend), ADR 0005 (server-side extraction runtime)
 
 ## Decision
 Host the static frontend on **Netlify (Free plan)**. Keep **Cloudflare Pages** as the fallback.
 
-While the app is under active development, production deploys are manual: `netlify.toml` skips builds from `main` (PR #74). Pull-request previews still build and cost 0 credits. Deploy on purpose with a build hook or the Netlify CLI; delete the `ignore` line to resume automatic deploys.
+While the app is under active development, production deploys are manual: netlify.toml skips builds from main (PR #74). Pull-request previews still build and cost 0 credits. Deploy on purpose with a build hook or the Netlify CLI; delete the ignore line to resume automatic deploys.
 
 ## Why
 - Already connected, with free pull-request previews.
@@ -27,7 +27,6 @@ While the app is under active development, production deploys are manual: `netli
 
 ## Triggers to revisit
 - Credits become a real constraint, or the site is paused.
-- Server-side functions need meaningful compute on Netlify.
+- Extraction workloads exceed Supabase Edge Function limits or the operational tradeoff changes.
 
-## Not decided here
-Where server-side functions run (Supabase Edge Functions or Netlify Functions). Decide when #32 (receipt and image extraction) starts; the same answer applies to #33.
+Server-side receipt, image, and PDF extraction runs in Supabase Edge Functions per ADR 0005. Netlify remains the static frontend host.
