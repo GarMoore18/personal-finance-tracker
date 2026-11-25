@@ -189,7 +189,7 @@ def test_account_management(url, browser):
     assert len(writes) == writes_before_archive
     confirmation.get_by_role('button', name='Cancel').click()
     assert len(writes) == writes_before_archive
-    page.get_by_role('button', name='Archive', exact=True).click()
+    page.get_by_role('button', name='Archive Joint checking', exact=True).click()
     page.get_by_role('group', name='Confirm archive Joint checking').get_by_role('button', name='Confirm archive').click()
     expect(page.get_by_role('heading', name='Archived accounts')).to_be_visible()
     page.get_by_role('button', name='Restore').click()
