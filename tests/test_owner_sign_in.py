@@ -183,7 +183,7 @@ def test_account_management(url, browser):
 
     page.get_by_role('button', name='View monthly history').first.click()
     expect(page.get_by_role('list', name='Monthly balance history for Everyday checking')).to_contain_text('125.25')
-    page.get_by_role('button', name='Update balance for Everyday checking').click()
+    page.get_by_role('button', name='Record balance for Everyday checking').click()
     page.get_by_label('Current balance').fill('126.75')
     page.get_by_label('Balance observed on').fill(today)
     page.get_by_role('button', name='Save balance').click()
@@ -191,13 +191,13 @@ def test_account_management(url, browser):
     assert len([item for item in snapshots if item['account_id'] == account['id']]) == 1
     assert snapshots[0]['balance'] == '126.75'
 
-    page.get_by_role('button', name='Update balance for Everyday checking').click()
+    page.get_by_role('button', name='Record balance for Everyday checking').click()
     page.get_by_label('Current balance').fill('130.25')
     page.get_by_label('Balance observed on').fill(next_month_observed)
     page.get_by_role('button', name='Save balance').click()
     assert sorted(item['month'] for item in snapshots if item['account_id'] == account['id']) == sorted([today[:7] + '-01', next_month_observed[:7] + '-01'])
     write_count = len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]])
-    page.get_by_role('button', name='Update balance for Everyday checking').click()
+    page.get_by_role('button', name='Record balance for Everyday checking').click()
     page.get_by_label('Current balance').fill('131.00')
     page.get_by_label('Balance observed on').fill(today)
     page.get_by_role('button', name='Save balance').click()
