@@ -21,15 +21,11 @@ review:
 merge:
   allow_no_ci: false
 verify:
-  command: python3 tests/test_ledger.py
+  command: "cd {worktree} && npm ci --prefix app && npm run verify --prefix app"
   timeout_minutes: 20
 triage:
   max_per_run: 3
-protected_paths:
-  - .github/
-  - .baton/
-  - netlify.toml
-  - docs/decisions/
+protected_paths: [".github/", ".baton/", ".claude/", "netlify.toml", "docs/decisions/"]
 ---
 # Ledger Baton brief
 

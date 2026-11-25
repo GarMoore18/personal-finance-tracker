@@ -34,10 +34,5 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - name: Install app dependencies
         run: npm ci --prefix app
-      - name: Check types and build app
-        env:
-          LEDGER_SUPABASE_URL: https://ledger-test.supabase.co
-          LEDGER_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
-        run: npm run build --prefix app
-      - name: Run owner sign-in and account management browser tests
-        run: python3 tests/test_owner_sign_in.py
+      - name: Build and verify Ledger with synthetic data
+        run: npm run verify --prefix app

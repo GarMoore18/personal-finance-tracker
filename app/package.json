@@ -10,7 +10,8 @@
     "dev": "vite",
     "check": "tsc --noEmit",
     "build": "npm run check && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify": "LEDGER_SUPABASE_URL=https://ledger-test.supabase.co LEDGER_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder npm run build && python3 ../tests/test_owner_sign_in.py"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.119.2",

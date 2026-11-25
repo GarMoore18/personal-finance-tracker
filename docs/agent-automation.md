@@ -19,11 +19,11 @@ Token ratings are qualitative: most projects do not publish a per-issue benchmar
 
 ## Setup
 
-1. Install Claude Code, Git, `gh`, Python 3.11 or later, and the repo's documented test prerequisites: `pip install playwright && playwright install chromium`. Authenticate `gh` locally; keep all credentials and private settings outside this repository.
+1. Install Claude Code, Git, `gh`, Python 3.11 or later, a supported [Node.js version](../app/README.md), and the repo's documented test prerequisites: `pip install playwright && playwright install chromium`. Authenticate `gh` locally; keep all credentials and private settings outside this repository.
 2. Install Baton using its [official setup instructions](https://github.com/barretstorck/baton#install). Keep the committed `.baton/brief.md`; it sets Haiku/low effort roles, one developer at a time, up to three triage items per run, two review rounds, and `allow_no_ci: false`.
 3. Plan up to three independent issues per sprint. Keep dependencies ordered. The scheduled Baton command resumes an already planned sprint; it does not create one. If one issue is blocked, leave one concise comment and pause that issue; continue only with independent sprint issues.
-4. The `Ledger browser tests` check runs `python3 tests/test_ledger.py`. `main` is protected outside the repository: changes require a PR and this strict status check; admins are covered, force-pushes and deletion are disabled, and no bypass is configured. There is no human approval requirement; Baton still requires its reviewer approval. Keep the branch rule enabled and update its required check if the job name changes.
-5. Follow Baton’s [scheduled-run guide](https://github.com/barretstorck/baton/blob/main/docs/scheduling.md) on a trusted local host. Do not put local settings, keys, personal finance data, or credentials in the repo.
+4. The `Ledger browser tests` check and Baton both use `npm run verify --prefix app` after `npm ci --prefix app`. It builds with synthetic configuration and runs the current Chromium suite. `main` is protected outside the repository: changes require a PR and this strict status check; admins are covered, force-pushes and deletion are disabled, and no bypass is configured. There is no human approval requirement; Baton still requires its reviewer approval. Keep the branch rule enabled and update its required check if the job name changes.
+5. Check model access and usage limits on the host, then follow Baton’s [scheduled-run guide](https://github.com/barretstorck/baton/blob/main/docs/scheduling.md) on a trusted local host. Do not put local settings, keys, personal finance data, or credentials in the repo.
 
 To keep tool output small, request only needed fields. For a compact PR list, run:
 
