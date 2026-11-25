@@ -195,6 +195,7 @@ def test_account_management(url, browser):
     page.get_by_label('Current balance').fill('130.25')
     page.get_by_label('Balance observed on').fill(next_month_observed)
     page.get_by_role('button', name='Save balance').click()
+    expect(page.get_by_role('list', name='Monthly balance history for Everyday checking')).to_contain_text('130.25')
     assert sorted(item['month'] for item in snapshots if item['account_id'] == account['id']) == sorted([today[:7] + '-01', next_month_observed[:7] + '-01'])
     write_count = len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]])
     page.get_by_role('button', name='Record balance for Everyday checking').click()
@@ -203,7 +204,6 @@ def test_account_management(url, browser):
     page.get_by_role('button', name='Save balance').click()
     expect(page.get_by_role('alert')).to_contain_text(f'on or after {next_month_observed}')
     assert len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]]) == write_count
-    expect(page.get_by_role('list', name='Monthly balance history for Everyday checking')).to_contain_text('130.25')
     assert all(item['balance'] in ('126.75', '130.25') for item in snapshots if item['account_id'] == account['id'])
 
     page.get_by_role('button', name='Add account').click()
@@ -247,7 +247,7 @@ def test_manual_expense(url, browser):
                      encode({'sub': USER['id'], 'exp': int(time.time()) + 3600}),
                      encode('synthetic signature')])
     category_id = '00000000-0000-4000-8000-000000000002'
-    saved, attempts = [], []
+    saved, attempts, changes = [], [], []
     category_requests = 0
     overview_ready = False
 
@@ -256,7 +256,7 @@ def test_manual_expense(url, browser):
         request = route.request
         path = urlsplit(request.url).path
         headers = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*',
-                   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'}
+                   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS'}
         if request.method == 'OPTIONS':
             route.fulfill(status=204, headers=headers)
         elif path == '/auth/v1/token':
@@ -283,7 +283,8 @@ def test_manual_expense(url, browser):
                 ]
             if dates == ['gte.2024-02-01', 'lt.2024-03-01']:
                 rows = [
-                    {**saved[0], 'id': '1', 'amount': 12.3, 'categories': {'name': 'Groceries'}},
+                    *[{**expense, 'id': '1', 'amount': float(expense['amount']),
+                       'categories': {'name': 'Groceries'}} for expense in saved],
                     {'id': '2', 'occurred_on': '2024-02-29', 'amount': 0.1,
                      'description': 'Parking meter', 'categories': {'name': 'Transport'}},
                     {'id': '3', 'occurred_on': '2024-02-28', 'amount': 8,
@@ -295,6 +296,14 @@ def test_manual_expense(url, browser):
         elif path == '/rest/v1/accounts':
             route.fulfill(headers=headers, json=[{'id': '6', 'name': 'Checking',
                                                   'current_balance': 75.95}] if overview_ready else [])
+        elif path == '/rest/v1/transactions' and request.method in ('PATCH', 'DELETE'):
+            assert parse_qs(urlsplit(request.url).query)['id'] == ['eq.1']
+            changes.append(request.method)
+            if request.method == 'PATCH':
+                saved[0].update(request.post_data_json)
+            else:
+                saved.clear()
+            route.fulfill(headers=headers, json=[{'id': '1'}])
         elif path == '/rest/v1/transactions' and request.method == 'POST':
             attempts.append(request.post_data_json)
             if len(attempts) == 1:
@@ -362,6 +371,40 @@ def test_manual_expense(url, browser):
     expect(latest.get_by_text('Market supplies')).to_be_hidden()
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('PASS monthly activity, daily totals, expense details, and expandable groups')
+
+    latest.locator('summary').click()
+    latest.get_by_role('button', name='Edit Market supplies').click()
+    editor = page.get_by_role('region', name='Edit expense')
+    expect(editor.get_by_label('Description')).to_have_value('Market supplies')
+    expect(editor.get_by_label('Amount (USD)')).to_have_value('12.3')
+    expect(editor.get_by_label('Category')).to_have_value(category_id)
+    expect(editor.get_by_label('Date', exact=True)).to_have_value('2024-02-29')
+    expect(editor.get_by_label('Notes (optional)')).to_have_value('Weekly shop')
+    editor.get_by_label('Description').fill('Discarded edit')
+    editor.get_by_role('button', name='Cancel', exact=True).click()
+    expect(latest.get_by_text('Market supplies')).to_be_visible()
+    assert not changes
+
+    latest.get_by_role('button', name='Edit Market supplies').click()
+    editor.get_by_label('Description').fill('Market produce')
+    editor.get_by_label('Amount (USD)').fill('18.15')
+    editor.get_by_role('button', name='Save changes').click()
+    expect(latest.get_by_text('Market produce')).to_be_visible()
+    expect(latest.locator('summary')).to_contain_text('$18.25')
+    expect(earlier.get_by_text('Sandwich')).to_be_visible()
+    expect(page.get_by_label('Month', exact=True)).to_have_value('2024-02')
+
+    latest.get_by_role('button', name='Edit Market produce').click()
+    editor.get_by_role('button', name='Delete expense').click()
+    expect(editor.get_by_text('Delete “Market produce”?')).to_be_visible()
+    editor.get_by_role('button', name='Keep expense').click()
+    assert changes == ['PATCH']
+    editor.get_by_role('button', name='Delete expense').click()
+    editor.get_by_role('button', name='Confirm deletion').click()
+    expect(latest.get_by_text('Market produce')).to_have_count(0)
+    expect(latest.locator('summary')).to_contain_text('$0.10')
+    assert changes == ['PATCH', 'DELETE']
+    print('PASS expense prefill, cancel, save, confirmed deletion, and preserved Activity context')
 
     overview_ready = True
     page.get_by_role('link', name='Home', exact=True).click()

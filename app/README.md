@@ -37,7 +37,7 @@ Apply the [database setup](../docs/DATABASE.md) in a local Supabase stack. Creat
 
 Keep self-registration and anonymous sign-ins disabled. PostgreSQL row-level security controls data access. Verify access and persistence before using real financial data.
 
-Accounts can be grouped, classified as assets or liabilities, and archived for safekeeping. Account history is preserved, and new accounts require a starting balance observation. Home shows spending for the device’s current month, net worth and up to four active account balances, and the five latest expenses grouped by day. Use Add to record an expense. Open Activity and select its month to see daily totals and expense details.
+Accounts can be grouped, classified as assets or liabilities, and archived for safekeeping. Account history is preserved, and new accounts require a starting balance observation. Home shows spending for the device’s current month, net worth and up to four active account balances, and the five latest expenses grouped by day. Use Add to record an expense. Open Activity and select its month to see daily totals and expense details. Edit an expense directly in its day. Deleting requires a second confirmation, and the selected month stays in view.
 
 The browser checks use synthetic Auth and REST fixtures. Hosted row-level security requires separate verification.
 
