@@ -7,6 +7,8 @@ Thumbs.db
 # Local secrets & exports — never commit real tokens, URLs, or personal finance data
 .env
 *.env
+.env.*
+!.env.example
 secrets.*
 *.local.*
 ledger-backup-*.json
