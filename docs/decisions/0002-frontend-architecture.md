@@ -10,7 +10,7 @@
 - **Data, login, private storage:** Supabase, called directly from the browser with the public key. Row-level security enforces access (ADR 0001). No custom server for core features.
 - **Server-side work** (receipt and PDF extraction, anything using secret keys): deferred to the Phase 3 imports (#32, #33). Where it runs (Supabase Edge Functions or the host's functions) is decided together with hosting in #70.
 - **Hosting:** static hosting, decided in #70. The build output must stay portable: plain static files plus a single-page-app fallback, so the host can change without code changes.
-- **Repo layout and the fate of the prototype** are decided in #10 (app shell).
+- **Repo layout:** The owner approved developing the replacement under `app/` (#10), with the prototype served from the repository root until the replacement is ready.
 
 ## Why
 - The prototype is one large HTML file. About 40 planned issues will not fit well into it. Components and types keep each change small and testable.

@@ -1,0 +1,43 @@
+name: Supabase schema checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-schema.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-schema.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  supabase-schema:
+    name: Supabase schema checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.4.0
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Start local Supabase stack
+        run: supabase start
+      - name: Apply migrations to a clean database
+        run: supabase db reset
+      - name: Verify schema, snapshots, and owner isolation
+        run: >-
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          -v ON_ERROR_STOP=1
+          -f supabase/checks/financial_schema.sql
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup

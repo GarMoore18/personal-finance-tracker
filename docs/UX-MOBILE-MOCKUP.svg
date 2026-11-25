@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 820" role="img" aria-labelledby="title description">
+  <title id="title">Ledger mobile visual sample</title>
+  <desc id="description">Illustrative Home and Add expense screens with warm neutral surfaces, deep green actions, clear currency figures, and compact navigation. All amounts and names are synthetic. The final app design tokens remain part of issue 10.</desc>
+  <rect width="800" height="820" fill="#F4F1E9"/>
+  <text x="32" y="48" fill="#66726C" font-family="system-ui, sans-serif" font-size="13" font-weight="700" letter-spacing="1.2">ILLUSTRATIVE MOBILE VISUAL · SYNTHETIC DATA</text>
+
+  <rect x="24" y="72" width="360" height="724" rx="30" fill="#FFFEFB" stroke="#D9DED7" stroke-width="2"/>
+  <text x="48" y="110" fill="#202925" font-family="system-ui, sans-serif" font-size="13" font-weight="600">9:41</text>
+  <text x="318" y="110" fill="#66726C" font-family="system-ui, sans-serif" font-size="12">● ● ●  Wi-Fi</text>
+  <text x="48" y="157" fill="#202925" font-family="system-ui, sans-serif" font-size="23" font-weight="700">Home</text>
+  <text x="318" y="156" fill="#66726C" text-anchor="end" font-family="system-ui, sans-serif" font-size="14">NOV 2026⌄</text>
+
+  <rect x="44" y="177" width="320" height="158" rx="18" fill="#F1F5F0"/>
+  <text x="64" y="210" fill="#52615A" font-family="system-ui, sans-serif" font-size="13" font-weight="600">SPENT THIS MONTH</text>
+  <text x="64" y="255" fill="#202925" font-family="system-ui, sans-serif" font-size="34" font-weight="700">$684.30</text>
+  <rect x="64" y="275" width="280" height="8" rx="4" fill="#D9E3DA"/>
+  <rect x="64" y="275" width="166" height="8" rx="4" fill="#1B5E4B"/>
+  <text x="64" y="311" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">Similar to last month's pace</text>
+
+  <rect x="44" y="352" width="320" height="82" rx="16" fill="#FFFEFB" stroke="#E0E4DE"/>
+  <text x="64" y="381" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">NET WORTH</text>
+  <text x="64" y="413" fill="#202925" font-family="system-ui, sans-serif" font-size="23" font-weight="700">$1,700.00</text>
+  <text x="344" y="410" fill="#1B5E4B" text-anchor="end" font-family="system-ui, sans-serif" font-size="13" font-weight="600">Accounts →</text>
+
+  <text x="48" y="470" fill="#202925" font-family="system-ui, sans-serif" font-size="17" font-weight="700">Top categories</text>
+  <text x="48" y="502" fill="#202925" font-family="system-ui, sans-serif" font-size="14" font-weight="600">Groceries</text>
+  <text x="344" y="502" fill="#202925" text-anchor="end" font-family="system-ui, sans-serif" font-size="14">$218.20</text>
+  <rect x="48" y="513" width="296" height="5" rx="2.5" fill="#E7E9E4"/>
+  <rect x="48" y="513" width="190" height="5" rx="2.5" fill="#1B5E4B"/>
+  <text x="48" y="546" fill="#202925" font-family="system-ui, sans-serif" font-size="14" font-weight="600">Dining</text>
+  <text x="344" y="546" fill="#202925" text-anchor="end" font-family="system-ui, sans-serif" font-size="14">$106.00</text>
+
+  <text x="48" y="590" fill="#202925" font-family="system-ui, sans-serif" font-size="17" font-weight="700">Recent activity</text>
+  <circle cx="61" cy="621" r="13" fill="#E8EFE8"/>
+  <text x="61" y="626" fill="#1B5E4B" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="700">G</text>
+  <text x="84" y="619" fill="#202925" font-family="system-ui, sans-serif" font-size="14" font-weight="600">Grocery store</text>
+  <text x="84" y="638" fill="#66726C" font-family="system-ui, sans-serif" font-size="12">Today · Groceries</text>
+  <text x="344" y="625" fill="#202925" text-anchor="end" font-family="system-ui, sans-serif" font-size="14" font-weight="600">−$42.50</text>
+
+  <path d="M44 674H364" stroke="#E3E6E1"/>
+  <text x="70" y="743" fill="#1B5E4B" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Home</text>
+  <text x="132" y="743" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">Activity</text>
+  <circle cx="204" cy="706" r="20" fill="#1B5E4B"/>
+  <text x="204" y="743" fill="#1B5E4B" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Add</text>
+  <path d="M204 698v16M196 706h16" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="266" y="743" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">Accounts</text>
+  <text x="337" y="743" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">More</text>
+
+  <rect x="416" y="72" width="360" height="724" rx="30" fill="#FFFEFB" stroke="#D9DED7" stroke-width="2"/>
+  <text x="440" y="110" fill="#202925" font-family="system-ui, sans-serif" font-size="13" font-weight="600">9:41</text>
+  <text x="710" y="110" fill="#66726C" font-family="system-ui, sans-serif" font-size="12">● ● ●  Wi-Fi</text>
+  <text x="440" y="157" fill="#202925" font-family="system-ui, sans-serif" font-size="21" font-weight="700">Add expense</text>
+  <text x="750" y="156" fill="#1B5E4B" text-anchor="end" font-family="system-ui, sans-serif" font-size="14" font-weight="600">Close</text>
+
+  <text x="440" y="202" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">AMOUNT</text>
+  <text x="596" y="252" fill="#202925" text-anchor="middle" font-family="system-ui, sans-serif" font-size="42" font-weight="700">$42.50</text>
+  <path d="M440 271H752" stroke="#E0E4DE"/>
+
+  <text x="440" y="303" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">CATEGORY</text>
+  <rect x="440" y="316" width="112" height="36" rx="18" fill="#E6F0E8"/>
+  <text x="496" y="339" fill="#174C3D" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="700">Groceries</text>
+  <rect x="560" y="316" width="80" height="36" rx="18" fill="#F2F2ED"/>
+  <text x="600" y="339" fill="#52615A" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13">Dining</text>
+  <rect x="648" y="316" width="82" height="36" rx="18" fill="#F2F2ED"/>
+  <text x="689" y="339" fill="#52615A" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13">Other</text>
+
+  <text x="440" y="386" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">DESCRIPTION</text>
+  <rect x="440" y="398" width="312" height="48" rx="12" fill="#FFFEFB" stroke="#CBD4CA"/>
+  <text x="456" y="428" fill="#202925" font-family="system-ui, sans-serif" font-size="14">Grocery store</text>
+
+  <text x="440" y="478" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">DATE</text>
+  <rect x="440" y="490" width="312" height="46" rx="12" fill="#FFFEFB" stroke="#CBD4CA"/>
+  <text x="456" y="519" fill="#202925" font-family="system-ui, sans-serif" font-size="14">Today</text>
+  <text x="734" y="519" fill="#66726C" text-anchor="end" font-family="system-ui, sans-serif" font-size="13">⌄</text>
+
+  <text x="440" y="568" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">OPTIONAL NOTE</text>
+  <text x="752" y="568" fill="#1B5E4B" text-anchor="end" font-family="system-ui, sans-serif" font-size="13" font-weight="600">Add note</text>
+  <rect x="440" y="585" width="312" height="58" rx="13" fill="#F1F5F0"/>
+  <text x="596" y="621" fill="#52615A" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13">Amount first · few clear fields · one action</text>
+
+  <rect x="440" y="674" width="312" height="56" rx="16" fill="#1B5E4B"/>
+  <text x="596" y="709" fill="#FFFFFF" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700">Save expense</text>
+</svg>

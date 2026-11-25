@@ -1,0 +1,12 @@
+{
+  "name": "Ledger Personal Finance Tracker",
+  "short_name": "Ledger",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f5f0",
+  "theme_color": "#f6f5f0",
+  "icons": [
+    { "src": "./ledger.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
