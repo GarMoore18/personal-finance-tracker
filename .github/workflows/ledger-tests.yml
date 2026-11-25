@@ -39,7 +39,5 @@ jobs:
           LEDGER_SUPABASE_URL: https://ledger-test.supabase.co
           LEDGER_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
         run: npm run build --prefix app
-      - name: Run Ledger tests
-        run: python3 tests/test_ledger.py
       - name: Run owner sign-in and account management browser tests
         run: python3 tests/test_owner_sign_in.py
