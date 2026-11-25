@@ -32,7 +32,7 @@ jobs:
         run: npm ci --prefix app
       - name: Check types and build app
         env:
-          LEDGER_SUPABASE_URL: https://example.supabase.co
+          LEDGER_SUPABASE_URL: https://ledger-test.supabase.co
           LEDGER_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
         run: npm run build --prefix app
       - name: Run Ledger tests
