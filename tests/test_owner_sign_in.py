@@ -157,7 +157,7 @@ def test_account_management(url, browser):
     page.get_by_role('button', name='Add account').click()
     expect(page.get_by_label('Starting balance')).to_have_value('0.00')
     page.get_by_label('Account name').fill('Everyday checking')
-    page.get_by_label('Group').select_option(group['id'])
+    page.get_by_label('Group', exact=True).select_option(group['id'])
     page.get_by_label('Starting balance').fill('125.25')
     page.get_by_role('button', name='Create account').click()
     expect(page.get_by_text('Everyday checking')).to_be_visible()
