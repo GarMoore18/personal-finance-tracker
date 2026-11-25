@@ -37,7 +37,9 @@ Apply the [database setup](../docs/DATABASE.md) in a local Supabase stack. Creat
 
 Keep self-registration and anonymous sign-ins disabled. PostgreSQL row-level security controls data access. Verify access and persistence before using real financial data.
 
-Accounts can be grouped, classified as assets or liabilities, and archived for safekeeping. Account history is preserved, and new accounts require a starting balance observation. The account browser checks use synthetic Auth and REST fixtures; they do not exercise hosted RLS.
+Accounts can be grouped, classified as assets or liabilities, and archived for safekeeping. Account history is preserved, and new accounts require a starting balance observation. Use Add to record an expense. Open Activity and select its month to see daily totals and expense details.
+
+The browser checks use synthetic Auth and REST fixtures. Hosted row-level security requires separate verification.
 
 ```sh
 LEDGER_SUPABASE_URL=https://ledger-test.supabase.co LEDGER_SUPABASE_PUBLISHABLE_KEY=sb_publishable_test-only npm run build --prefix app

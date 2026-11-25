@@ -7,7 +7,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -270,6 +270,18 @@ def test_manual_expense(url, browser):
                 route.fulfill(status=400, headers=headers, json={'message': 'Synthetic load failure'})
             else:
                 route.fulfill(headers=headers, json=[{'id': category_id, 'name': 'Groceries'}])
+        elif path == '/rest/v1/transactions' and request.method == 'GET':
+            dates = parse_qs(urlsplit(request.url).query)['occurred_on']
+            rows = []
+            if dates == ['gte.2024-02-01', 'lt.2024-03-01']:
+                rows = [
+                    {**saved[0], 'id': '1', 'amount': 12.3, 'categories': {'name': 'Groceries'}},
+                    {'id': '2', 'occurred_on': '2024-02-29', 'amount': 0.1,
+                     'description': 'Parking meter', 'categories': {'name': 'Transport'}},
+                    {'id': '3', 'occurred_on': '2024-02-28', 'amount': 8,
+                     'description': 'Sandwich', 'categories': {'name': 'Dining'}},
+                ]
+            route.fulfill(headers=headers, json=rows)
         elif path == '/rest/v1/transactions' and request.method == 'POST':
             attempts.append(request.post_data_json)
             if len(attempts) == 1:
@@ -318,6 +330,25 @@ def test_manual_expense(url, browser):
                       'category_id': category_id, 'occurred_on': '2024-02-29',
                       'notes': 'Weekly shop'}], saved
     print('PASS manual expense date, category retry, amount validation, failed write recovery, and successful save')
+
+    page.get_by_role('link', name='Activity').click()
+    expect(page.get_by_text('No expenses for this month.')).to_be_visible()
+    page.get_by_label('Month', exact=True).fill('2024-02')
+    dates = page.locator('.activity-day')
+    expect(dates).to_have_count(2)
+    latest, earlier = dates.nth(0), dates.nth(1)
+    expect(latest.locator('summary')).to_contain_text('$12.40')
+    expect(latest.get_by_text('Market supplies')).to_be_visible()
+    expect(latest.get_by_text('Groceries')).to_be_visible()
+    expect(latest.get_by_text('$12.30', exact=True)).to_be_visible()
+    expect(earlier.locator('summary')).to_contain_text('$8.00')
+    expect(earlier.get_by_text('Sandwich')).to_be_hidden()
+    earlier.locator('summary').click()
+    expect(earlier.get_by_text('Sandwich')).to_be_visible()
+    latest.locator('summary').click()
+    expect(latest.get_by_text('Market supplies')).to_be_hidden()
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    print('PASS monthly activity, daily totals, expense details, and expandable groups')
     page.close()
 
 

@@ -28,7 +28,7 @@ Home leads with spending for the selected month. Activity and Accounts links ope
 | Coffee shop · Dining · **−$5.00** | Notes |
 | Home · **Activity** · + · Accounts · More | **Save changes** · Delete expense |
 
-Group expenses by calendar day in descending order. Open the edit form by selecting a row and preserve the list position and filters on return. Confirm deletion by naming the expense. If a search returns zero results, offer to clear the filters.
+Activity opens to the current month, with a month picker for earlier entries. Group expenses by calendar day in descending order, show each day’s total, and open the latest day by default. Open the edit form by selecting a row and preserve the list position and filters on return. Confirm deletion by naming the expense. If a search returns zero results, offer to clear the filters.
 
 ## Accounts and categories
 

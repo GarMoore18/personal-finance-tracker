@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ActivityPage, currentMonth } from './ActivityPage';
 import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
 
@@ -42,6 +43,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseClient }) {
   const [page, setPage] = useState(currentPage);
   const [theme, setTheme] = useState(initialTheme);
+  const [activityMonth, setActivityMonth] = useState(currentMonth);
   const [expenseSaved, setExpenseSaved] = useState(false);
   const expenseOrigin = useRef<Page>(pages[0]);
   const main = useRef<HTMLElement>(null);
@@ -121,10 +123,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
           </div>
         )}
         {page.id === 'activity' && (
-          <Panel title="Expense history">
-            <p>No expenses to show yet.</p>
-            <a className="action" href="#/add">Add an expense</a>
-          </Panel>
+          <ActivityPage client={client} month={activityMonth} onMonthChange={setActivityMonth} />
         )}
         {page.id === 'add' && (
           <ExpenseForm client={client} onSaved={() => {
