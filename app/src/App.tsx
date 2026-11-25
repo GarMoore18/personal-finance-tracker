@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ActivityPage, currentMonth } from './ActivityPage';
+import { ActivityPage } from './ActivityPage';
+import { currentMonth } from './transactions';
+import { HomePage } from './HomePage';
 import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
 
@@ -29,15 +31,6 @@ function initialTheme(): Theme {
   } catch {
     return 'system';
   }
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="panel">
-      <h2>{title}</h2>
-      {children}
-    </section>
-  );
 }
 
 export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseClient }) {
@@ -110,18 +103,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
       <main id="main-content" ref={main} tabIndex={-1}>
         <h1>{page.heading}</h1>
         <div role="status">{expenseSaved && <p className="expense-confirmation">Expense saved.</p>}</div>
-        {page.id === 'home' && (
-          <div className="panel-grid">
-            <Panel title="Spending">
-              <p>Monthly spending will appear here after you add expenses.</p>
-              <a className="action" href="#/add">Add an expense</a>
-            </Panel>
-            <Panel title="Net worth">
-              <p>Net worth will appear here when account balances are available.</p>
-              <a className="action" href="#/accounts">View accounts</a>
-            </Panel>
-          </div>
-        )}
+        {page.id === 'home' && <HomePage client={client} onCurrentActivity={() => setActivityMonth(currentMonth())} />}
         {page.id === 'activity' && (
           <ActivityPage client={client} month={activityMonth} onMonthChange={setActivityMonth} />
         )}
