@@ -5,7 +5,7 @@ import { currentMonth, dayLabel, groupDays, loadMonth, transactionQuery } from '
 import type { Day, Transaction } from './transactions';
 
 type Account = { id: string; name: string; current_balance: string | number };
-type Overview = { worthFailed: boolean; spending: bigint | null; netWorth: bigint | null; accounts: Account[] | null; recent: Day[] | null };
+type Overview = { count: number | null; worthFailed: boolean; spending: bigint | null; netWorth: bigint | null; accounts: Account[] | null; recent: Day[] | null };
 const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient; onCurrentActivity: () => void }) {
@@ -26,6 +26,7 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
       ]);
       if (signal.aborted) return;
       setOverview({
+        count: spending?.reduce((total, day) => total + day.transactions.length, 0) ?? null,
         spending: spending?.reduce((sum, day) => sum + day.total, 0n) ?? null,
         netWorth: worth.data ? toCents(worth.data.net_worth) : null,
         accounts: accounts.error ? null : accounts.data,
@@ -39,14 +40,50 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
   const missing = overview && (overview.worthFailed || overview.spending === null || overview.accounts === null || overview.recent === null);
   return (
     <div className="overview">
+      <div className="overview-heading">
+        <h1>Overview</h1>
+        <span>{monthLabel.format(new Date(month + '-01T00:00:00Z'))}</span>
+      </div>
+      {!overview && <p role="status" className="overview-notice">Loading your overview…</p>}
+      {missing && <div className="overview-error" role="alert">
+        <span>Some balances or expenses couldn’t be loaded.</span>
+        <button className="button-secondary" type="button" onClick={() => {
+          setOverview(undefined);
+          setAttempt((previous) => previous + 1);
+        }}>Retry</button>
+      </div>}
       <div className="overview-grid">
         <section className="panel overview-spending" aria-labelledby="spending-title">
-          <div className="overview-period">{monthLabel.format(new Date(month + '-01T00:00:00Z'))}</div>
           <h2 id="spending-title">Spending this month</h2>
           <p className="overview-amount">{overview?.spending != null ? formatUsd(overview.spending) : '—'}</p>
-          <div className="overview-actions">
-            <a className="overview-add" href="#/add">Add an expense</a>
-            <a className="action" href="#/activity" onClick={onCurrentActivity}>View activity</a>
+          {overview?.count != null && (
+            <p className="overview-count">{overview.count} {overview.count === 1 ? 'expense' : 'expenses'}</p>
+          )}
+        </section>
+        <section className="overview-activity" aria-labelledby="recent-title">
+          <div className="overview-section-head">
+            <h2 id="recent-title">Recent expenses</h2>
+            <a className="action" href="#/activity" onClick={onCurrentActivity}>View all</a>
+          </div>
+          <div className="panel overview-rows">
+            {overview?.recent?.length === 0 && <p>No expenses yet.</p>}
+            {overview?.recent?.map((day) => (
+              <div className="overview-day" key={day.date}>
+                <h3>{dayLabel.format(new Date(day.date + 'T00:00:00Z'))}</h3>
+                <ul className="overview-list">
+                  {day.transactions.map((expense) => {
+                    const category = expense.categories?.name ?? 'Uncategorized';
+                    return (
+                      <li key={expense.id}>
+                        <span className="overview-category" aria-hidden="true">{Array.from(category)[0]}</span>
+                        <div><span>{expense.description}</span><small>{category}</small></div>
+                        <strong>{formatUsd(toCents(expense.amount))}</strong>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         </section>
         <section className="panel overview-accounts" aria-labelledby="worth-title">
@@ -65,31 +102,6 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
           )}
         </section>
       </div>
-      {!overview && <p role="status">Loading your overview…</p>}
-      {missing && <div className="overview-error" role="alert">
-        <span>Some balances or expenses couldn’t be loaded.</span>
-        <button className="button-secondary" type="button" onClick={() => {
-          setOverview(undefined);
-          setAttempt((previous) => previous + 1);
-        }}>Retry</button>
-      </div>}
-      <section className="panel" aria-labelledby="recent-title">
-        <h2 id="recent-title">Recent expenses</h2>
-        {overview?.recent?.length === 0 && <p>No expenses yet.</p>}
-        {overview?.recent?.map((day) => (
-          <div className="overview-day" key={day.date}>
-            <h3>{dayLabel.format(new Date(day.date + 'T00:00:00Z'))}</h3>
-            <ul className="overview-list">
-              {day.transactions.map((expense) => (
-                <li key={expense.id}>
-                  <div><span>{expense.description}</span><small>{expense.categories?.name ?? 'Uncategorized'}</small></div>
-                  <strong>{formatUsd(toCents(expense.amount))}</strong>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </section>
     </div>
   );
 }

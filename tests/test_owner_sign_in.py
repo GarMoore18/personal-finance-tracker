@@ -357,7 +357,7 @@ def test_manual_expense(url, browser):
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
 
     save.click()
-    expect(page.get_by_role('heading', name='Home', exact=True)).to_be_visible()
+    expect(page.get_by_role('heading', name='Overview', exact=True)).to_be_visible()
     expect(page.get_by_role('status').filter(has_text='Expense saved.')).to_be_visible()
     assert saved == [{'amount': '12.30', 'description': 'Market supplies',
                       'category_id': category_id, 'occurred_on': '2024-02-29',
@@ -426,7 +426,18 @@ def test_manual_expense(url, browser):
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     page.set_viewport_size({'width': 1280, 'height': 900})
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-    print('PASS Home spending, signed net worth, account balances, and recent expenses at phone and desktop widths')
+    page.set_viewport_size({'width': 320, 'height': 720})
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    navigation = page.get_by_role('navigation', name='Main navigation')
+    expect(navigation.get_by_role('link', name='Home')).to_have_attribute('aria-current', 'page')
+    assert navigation.get_by_role('link', name='Add an expense').bounding_box()['height'] >= 44
+    navigation.get_by_role('link', name='More').click()
+    page.get_by_role('radio', name='dark').check()
+    navigation.get_by_role('link', name='Home').click()
+    expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
+    expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$10.30')
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    print('PASS Home data, desktop and 320px layouts, labeled navigation, and dark theme')
     page.close()
 
 

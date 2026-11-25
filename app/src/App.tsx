@@ -8,11 +8,11 @@ import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
 
 const pages = [
-  { id: 'home', label: 'Home', heading: 'Home' },
-  { id: 'activity', label: 'Activity', heading: 'Activity' },
-  { id: 'add', label: 'Add', heading: 'Add expense' },
-  { id: 'accounts', label: 'Accounts', heading: 'Accounts' },
-  { id: 'more', label: 'More', heading: 'Settings' },
+  { id: 'home', label: 'Home', icon: '⌂', heading: 'Overview' },
+  { id: 'activity', label: 'Activity', icon: '≡', heading: 'Activity' },
+  { id: 'add', label: 'Add', icon: '+', heading: 'Add expense' },
+  { id: 'accounts', label: 'Accounts', icon: '▤', heading: 'Accounts' },
+  { id: 'more', label: 'More', icon: '···', heading: 'Settings' },
 ] as const;
 
 const themes = ['system', 'light', 'dark'] as const;
@@ -86,22 +86,24 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
         Skip to content
       </a>
       <header className="sidebar">
-        <a className="brand" href="#/home">Ledger</a>
+        <a className="brand" href="#/home"><span className="brand-mark" aria-hidden="true" />Ledger</a>
         <nav aria-label="Main navigation">
-          {pages.map(({ id, label }) => (
+          {pages.map(({ id, label, icon }) => (
             <a
               key={id}
               href={'#/' + id}
+              aria-label={id === 'add' ? 'Add an expense' : undefined}
               aria-current={page.id === id ? 'page' : undefined}
               className={id === 'add' ? 'nav-add' : undefined}
             >
+              <span className="nav-icon" aria-hidden="true">{icon}</span>
               {label}
             </a>
           ))}
         </nav>
       </header>
       <main id="main-content" ref={main} tabIndex={-1}>
-        <h1>{page.heading}</h1>
+        {page.id !== 'home' && <h1>{page.heading}</h1>}
         <div role="status">{expenseSaved && <p className="expense-confirmation">Expense saved.</p>}</div>
         {page.id === 'home' && <HomePage client={client} onCurrentActivity={() => setActivityMonth(currentMonth())} />}
         {page.id === 'activity' && (
