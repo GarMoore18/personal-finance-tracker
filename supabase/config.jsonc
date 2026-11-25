@@ -1,0 +1,18 @@
+{
+  "$schema": "https://supabase.com/schemas/config/v1.json",
+  "project_id": "ledger",
+  "api": {
+    "enabled": true,
+    "auto_expose_new_tables": false
+  },
+  "db": {
+    "major_version": 17,
+    "seed": { "enabled": false }
+  },
+  "auth": {
+    "enabled": true,
+    "site_url": "http://localhost:5173",
+    "enable_signup": false,
+    "enable_anonymous_sign_ins": false
+  }
+}
