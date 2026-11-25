@@ -249,6 +249,7 @@ def test_manual_expense(url, browser):
     category_id = '00000000-0000-4000-8000-000000000002'
     saved, attempts = [], []
     category_requests = 0
+    overview_ready = False
 
     def api(route):
         nonlocal category_requests
@@ -271,8 +272,15 @@ def test_manual_expense(url, browser):
             else:
                 route.fulfill(headers=headers, json=[{'id': category_id, 'name': 'Groceries'}])
         elif path == '/rest/v1/transactions' and request.method == 'GET':
-            dates = parse_qs(urlsplit(request.url).query)['occurred_on']
+            dates = parse_qs(urlsplit(request.url).query).get('occurred_on', [])
             rows = []
+            if overview_ready:
+                rows = [
+                    {'id': '4', 'occurred_on': today, 'amount': 10.10,
+                     'description': 'Coffee beans', 'categories': {'name': 'Groceries'}},
+                    {'id': '5', 'occurred_on': today, 'amount': 0.20,
+                     'description': 'Parking', 'categories': {'name': 'Transport'}},
+                ]
             if dates == ['gte.2024-02-01', 'lt.2024-03-01']:
                 rows = [
                     {**saved[0], 'id': '1', 'amount': 12.3, 'categories': {'name': 'Groceries'}},
@@ -282,6 +290,11 @@ def test_manual_expense(url, browser):
                      'description': 'Sandwich', 'categories': {'name': 'Dining'}},
                 ]
             route.fulfill(headers=headers, json=rows)
+        elif path == '/rest/v1/current_net_worth':
+            route.fulfill(headers=headers, json=[{'net_worth': '-25.05'}] if overview_ready else [])
+        elif path == '/rest/v1/accounts':
+            route.fulfill(headers=headers, json=[{'id': '6', 'name': 'Checking',
+                                                  'current_balance': 75.95}] if overview_ready else [])
         elif path == '/rest/v1/transactions' and request.method == 'POST':
             attempts.append(request.post_data_json)
             if len(attempts) == 1:
@@ -325,13 +338,13 @@ def test_manual_expense(url, browser):
 
     save.click()
     expect(page.get_by_role('heading', name='Home', exact=True)).to_be_visible()
-    expect(page.get_by_role('status')).to_contain_text('Expense saved.')
+    expect(page.get_by_role('status').filter(has_text='Expense saved.')).to_be_visible()
     assert saved == [{'amount': '12.30', 'description': 'Market supplies',
                       'category_id': category_id, 'occurred_on': '2024-02-29',
                       'notes': 'Weekly shop'}], saved
     print('PASS manual expense date, category retry, amount validation, failed write recovery, and successful save')
 
-    page.get_by_role('link', name='Activity').click()
+    page.get_by_role('link', name='Activity', exact=True).click()
     expect(page.get_by_text('No expenses for this month.')).to_be_visible()
     page.get_by_label('Month', exact=True).fill('2024-02')
     dates = page.locator('.activity-day')
@@ -349,6 +362,17 @@ def test_manual_expense(url, browser):
     expect(latest.get_by_text('Market supplies')).to_be_hidden()
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('PASS monthly activity, daily totals, expense details, and expandable groups')
+
+    overview_ready = True
+    page.get_by_role('link', name='Home', exact=True).click()
+    expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$10.30')
+    expect(page.get_by_role('region', name='Net worth')).to_contain_text('-$25.05')
+    expect(page.get_by_role('list', name='Account balances')).to_contain_text('$75.95')
+    expect(page.get_by_role('region', name='Recent expenses')).to_contain_text('Coffee beans')
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    page.set_viewport_size({'width': 1280, 'height': 900})
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    print('PASS Home spending, signed net worth, account balances, and recent expenses at phone and desktop widths')
     page.close()
 
 

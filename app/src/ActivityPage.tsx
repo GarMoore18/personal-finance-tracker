@@ -1,28 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { localToday } from './financialInputs';
 
-type Transaction = {
-  id: string;
-  occurred_on: string;
-  description: string;
-  amount: number;
-  categories: { name: string } | null;
-};
-type Day = { date: string; total: bigint; transactions: Transaction[] };
-
-const dayLabel = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
-});
-
-function toCents(amount: number) {
-  // Each database amount has at most two decimals and fits within safe integer cents.
-  return BigInt(Math.round(amount * 100));
-}
-
-function formatUsd(cents: bigint) {
-  return '$' + (cents / 100n).toLocaleString('en-US') + '.' + String(cents % 100n).padStart(2, '0');
-}
+import { dayLabel, loadMonth } from './transactions';
+import type { Day } from './transactions';
+import { formatUsd, toCents } from './money';
 
 export function ActivityPage({ client, month, onMonthChange }: {
   client: SupabaseClient;
@@ -34,36 +15,9 @@ export function ActivityPage({ client, month, onMonthChange }: {
 
   useEffect(() => {
     const request = new AbortController();
-    void (async () => {
-      const [year, monthNumber] = month.split('-').map(Number);
-      const nextMonth = monthNumber === 12
-        ? String(year + 1).padStart(4, '0') + '-01'
-        : String(year).padStart(4, '0') + '-' + String(monthNumber + 1).padStart(2, '0');
-      const days = new Map<string, Day>();
-      const batchSize = 200;
-      for (let offset = 0; !request.signal.aborted; offset += batchSize) {
-        const { data, error } = await client.from('transactions')
-          .select('id, occurred_on, description, amount, categories(name)')
-          .gte('occurred_on', month + '-01').lt('occurred_on', nextMonth + '-01')
-          .order('occurred_on', { ascending: false }).order('id')
-          .range(offset, offset + batchSize - 1).abortSignal(request.signal)
-          .overrideTypes<Transaction[], { merge: false }>();
-        if (request.signal.aborted) return;
-        if (error) {
-          setResult({ month, days: null });
-          return;
-        }
-        for (const transaction of data) {
-          const date = transaction.occurred_on;
-          const day = days.get(date) ?? { date, total: 0n, transactions: [] };
-          day.total += toCents(transaction.amount);
-          day.transactions.push(transaction);
-          days.set(date, day);
-        }
-        if (data.length < batchSize) break;
-      }
-      if (!request.signal.aborted) setResult({ month, days: [...days.values()] });
-    })();
+    void loadMonth(client, month, request.signal).then((days) => {
+      if (!request.signal.aborted) setResult({ month, days });
+    });
     return () => request.abort();
   }, [client, month, attempt]);
 
@@ -112,8 +66,4 @@ export function ActivityPage({ client, month, onMonthChange }: {
       ))}
     </section>
   );
-}
-
-export function currentMonth() {
-  return localToday().slice(0, 7);
 }
