@@ -32,4 +32,4 @@ gh pr list --state open --json number,title,isDraft,baseRefName,headRefName,merg
   --jq '.[] | [.number, .title, (.isDraft | tostring), .baseRefName, .headRefName, .mergeStateStatus] | @tsv'
 ```
 
-Omit bodies and comments until needed, and inspect only the selected PR's diff. At completion, run `baton usage` and report per-issue estimates. Baton documents output-token counts as lower bounds.
+Omit bodies and comments until needed, and inspect only the selected PR's diff. For a fresh session, read `AGENTS.md`, the concise `.baton/session-state.md`, the selected issue, and only the files it needs; update the handoff after each issue instead of carrying transcripts or full logs. At completion, run `baton usage` and report per-issue estimates. Baton documents output-token counts as lower bounds.
