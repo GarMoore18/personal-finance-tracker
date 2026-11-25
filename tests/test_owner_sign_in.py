@@ -177,7 +177,7 @@ def test_account_management(url, browser):
     account = accounts[0]
     today = page.evaluate("""() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); }""")
     next_month_observed = page.evaluate("""(today) => { const [year, month] = today.split('-').map(Number); const d = new Date(Date.UTC(year, month, 3)); return [d.getUTCFullYear(), String(d.getUTCMonth() + 1).padStart(2, '0'), String(d.getUTCDate()).padStart(2, '0')].join('-'); }""", today)
-    assert account['current_balance'] == '125.25' and 'balance_observed_on' in account
+    assert account['current_balance'] == '125.25' and account['balance_observed_on'] == today
     assert snapshots[0]['balance'] == '125.25' and snapshots[0]['month'].endswith('-01')
     assert all('user_id' not in payload for _, _, payload in writes)
 
@@ -211,7 +211,6 @@ def test_account_management(url, browser):
     page.get_by_role('button', name='Create account').click()
     expect(page.get_by_text('Cash reserve')).to_be_visible()
     assert accounts[1]['group_id'] is None
-    assert account['balance_observed_on'] == today
 
     page.get_by_role('button', name='Rename').click()
     page.locator('input[id^="rename-"]').fill('Daily banking')
