@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { localToday, normalizeUsdAmount } from './financialInputs';
 
 type AccountKind = 'asset' | 'liability';
 type Group = { id: string; name: string; sort_order: number };
@@ -14,10 +15,6 @@ type Account = {
   balance_observed_on: string;
   archived_at: string | null;
 };
-function localToday() {
-  const today = new Date();
-  return [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
-}
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return <section className="panel"><h2>{title}</h2>{children}</section>;
 }
@@ -33,15 +30,6 @@ function formatBalance(value: string) {
     grouped += whole[index];
   }
   return (negative ? '-$' : '$') + grouped + '.' + fraction.padEnd(2, '0').slice(0, 2);
-}
-function normalizeBalance(value: string): string | null {
-  const match = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim());
-  if (!match) return null;
-  const whole = match[2].replace(/^0+(?=\d)/, '');
-  if (whole.length > 12 || (whole.length === 12 && whole > '999999999999')) return null;
-  const fraction = (match[3] ?? '').padEnd(2, '0');
-  const negative = match[1] && (whole !== '0' || fraction !== '00') ? '-' : '';
-  return negative + whole + '.' + fraction;
 }
 function AccountManager({ client }: { client: SupabaseClient }) {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -103,7 +91,7 @@ function AccountManager({ client }: { client: SupabaseClient }) {
     const name = String(form.get('account-name') ?? '').trim();
     const group = String(form.get('group-id') ?? '');
     const kind = String(form.get('kind') ?? '') as AccountKind;
-    const startingBalance = accountForm === 'create' ? normalizeBalance(String(form.get('starting-balance') ?? '')) : null;
+    const startingBalance = accountForm === 'create' ? normalizeUsdAmount(String(form.get('starting-balance') ?? '')) : null;
     if (!name) return;
     if (accountForm === 'create' && startingBalance === null) {
       setFormError('Enter a balance with no more than two decimal places.');
@@ -130,7 +118,7 @@ function AccountManager({ client }: { client: SupabaseClient }) {
     event.preventDefault();
     if (saving) return;
     const form = new FormData(event.currentTarget);
-    const balance = normalizeBalance(String(form.get('balance') ?? ''));
+    const balance = normalizeUsdAmount(String(form.get('balance') ?? ''));
     const observedOn = String(form.get('observed-on') ?? '');
     if (balance === null) {
       setFormError('Enter a balance with no more than two decimal places.');

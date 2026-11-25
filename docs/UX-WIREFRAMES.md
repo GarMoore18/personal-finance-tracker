@@ -14,7 +14,7 @@ Each column below reads from top to bottom. Text and amounts are representative 
 | Home · Activity · **+** · Accounts · More | Date · Today · Add note |
 | | **Save expense** |
 
-Home leads with spending for the selected month. Activity and Accounts links open their corresponding destinations. Add is reachable from any main screen. On successful save, return to the originating screen and announce the new expense. On failure, keep the form open with its values.
+Home leads with spending for the selected month. Activity and Accounts links open their corresponding destinations. Add is reachable from any main screen. On successful save, return to the originating screen and announce the new expense. On failure, keep the form open with its values. Manual entry uses the device’s local date by default and accepts earlier dates. Choose a category before saving.
 
 ## Activity and editing
 

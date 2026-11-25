@@ -240,6 +240,87 @@ def test_account_management(url, browser):
     page.close()
 
 
+def test_manual_expense(url, browser):
+    page = browser.new_page(viewport={'width': 390, 'height': 844},
+                            timezone_id='America/Los_Angeles')
+    token = '.'.join([encode({'alg': 'HS256', 'typ': 'JWT'}),
+                     encode({'sub': USER['id'], 'exp': int(time.time()) + 3600}),
+                     encode('synthetic signature')])
+    category_id = '00000000-0000-4000-8000-000000000002'
+    saved, attempts = [], []
+    category_requests = 0
+
+    def api(route):
+        nonlocal category_requests
+        request = route.request
+        path = urlsplit(request.url).path
+        headers = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*',
+                   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'}
+        if request.method == 'OPTIONS':
+            route.fulfill(status=204, headers=headers)
+        elif path == '/auth/v1/token':
+            route.fulfill(headers=headers, json={
+                'access_token': token, 'token_type': 'bearer', 'expires_in': 3600,
+                'refresh_token': 'synthetic-refresh-token', 'user': USER})
+        elif path == '/auth/v1/user':
+            route.fulfill(headers=headers, json=USER)
+        elif path == '/rest/v1/categories':
+            category_requests += 1
+            if category_requests == 1:
+                route.fulfill(status=400, headers=headers, json={'message': 'Synthetic load failure'})
+            else:
+                route.fulfill(headers=headers, json=[{'id': category_id, 'name': 'Groceries'}])
+        elif path == '/rest/v1/transactions' and request.method == 'POST':
+            attempts.append(request.post_data_json)
+            if len(attempts) == 1:
+                route.fulfill(status=400, headers=headers, json={'message': 'Synthetic write failure'})
+            else:
+                saved.append(request.post_data_json)
+                route.fulfill(status=201, headers=headers, body='')
+        else:
+            route.fulfill(status=404, headers=headers)
+
+    page.route(ORIGIN + '/**', api)
+    page.goto(url + '#/home')
+    page.get_by_label('Email').fill(USER['email'])
+    page.get_by_label('Password').fill(PASSWORD)
+    page.get_by_role('button', name='Sign in').click()
+    page.get_by_role('link', name='Add an expense').click()
+    today = page.evaluate("""() => new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date())""")
+    expect(page.get_by_label('Date', exact=True)).to_have_value(today)
+    expect(page.get_by_role('alert')).to_have_text('Could not load categories.')
+    expect(page.get_by_role('button', name='Save expense')).to_be_disabled()
+    page.get_by_role('button', name='Retry').click()
+
+    page.get_by_label('Description').fill('  Market supplies  ')
+    page.get_by_label('Category').select_option(label='Groceries')
+    page.get_by_label('Date', exact=True).fill('2024-02-29')
+    page.get_by_label('Notes (optional)').fill('  Weekly shop  ')
+    save = page.get_by_role('button', name='Save expense')
+    page.get_by_label('Amount (USD)').fill('12.345')
+    save.click()
+    expect(page.get_by_role('alert')).to_contain_text('up to two decimal places')
+    assert not attempts
+
+    page.get_by_label('Amount (USD)').fill('12.3')
+    save.click()
+    expect(page.get_by_role('alert')).to_contain_text('Your entries are still here')
+    expect(page.get_by_label('Amount (USD)')).to_have_value('12.3')
+    expect(page.get_by_label('Notes (optional)')).to_have_value('  Weekly shop  ')
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+
+    save.click()
+    expect(page.get_by_role('heading', name='Home', exact=True)).to_be_visible()
+    expect(page.get_by_role('status')).to_contain_text('Expense saved.')
+    assert saved == [{'amount': '12.30', 'description': 'Market supplies',
+                      'category_id': category_id, 'occurred_on': '2024-02-29',
+                      'notes': 'Weekly shop'}], saved
+    print('PASS manual expense date, category retry, amount validation, failed write recovery, and successful save')
+    page.close()
+
+
 if __name__ == '__main__':
     assert (DIST / 'index.html').is_file(), 'Build app/dist with the documented synthetic configuration.'
     with ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=DIST)) as server:
@@ -249,5 +330,6 @@ if __name__ == '__main__':
             browser = playwright.chromium.launch(**chrome)
             test_sign_in(f'http://127.0.0.1:{server.server_port}/', browser)
             test_account_management(f'http://127.0.0.1:{server.server_port}/', browser)
+            test_manual_expense(f'http://127.0.0.1:{server.server_port}/', browser)
             browser.close()
         server.shutdown()

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AccountsPage } from './AccountsPage';
+import { ExpenseForm } from './ExpenseForm';
 
 const pages = [
   { id: 'home', label: 'Home', heading: 'Home' },
@@ -41,12 +42,19 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseClient }) {
   const [page, setPage] = useState(currentPage);
   const [theme, setTheme] = useState(initialTheme);
+  const [expenseSaved, setExpenseSaved] = useState(false);
+  const expenseOrigin = useRef<Page>(pages[0]);
   const main = useRef<HTMLElement>(null);
   const previousPage = useRef(page);
 
   useEffect(() => {
     function navigate() {
-      setPage(currentPage());
+      const next = currentPage();
+      if (next.id === 'add') {
+        if (previousPage.current.id !== 'add') expenseOrigin.current = previousPage.current;
+        setExpenseSaved(false);
+      }
+      setPage(next);
     }
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
@@ -99,6 +107,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
       </header>
       <main id="main-content" ref={main} tabIndex={-1}>
         <h1>{page.heading}</h1>
+        <div role="status">{expenseSaved && <p className="expense-confirmation">Expense saved.</p>}</div>
         {page.id === 'home' && (
           <div className="panel-grid">
             <Panel title="Spending">
@@ -117,7 +126,12 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
             <a className="action" href="#/add">Add an expense</a>
           </Panel>
         )}
-        {page.id === 'add' && <p>Expense entry is coming in a later update.</p>}
+        {page.id === 'add' && (
+          <ExpenseForm client={client} onSaved={() => {
+            setExpenseSaved(true);
+            if (currentPage().id === 'add') location.hash = '#/' + expenseOrigin.current.id;
+          }} />
+        )}
         {page.id === 'accounts' && <AccountsPage client={client} />}
         {page.id === 'more' && (
           <>
