@@ -14,3 +14,4 @@ Ledger is a phone-first personal finance tracker. The root `index.html` prototyp
 - If blocked, add `status:blocked`, leave one concise issue comment with the reason and next step, and stop. Do not retry in a loop.
 - Run `python3 tests/test_ledger.py` for behavior changes and update relevant docs. Merge only after required CI passes and main branch protection remains enabled; never bypass it.
 - Keep context scoped and do not reread the whole repo. Maintain a concise handoff in ignored `.baton/session-state.md`; record issue, status, checks, next step, and usage estimate only. Never put secrets or financial data there. Report the per-issue `baton usage` estimate when done; output-token counts are lower bounds.
+- After long sessions, briefly record what consumed time or tokens and whether a script, narrower context, or handoff would have reduced it.
