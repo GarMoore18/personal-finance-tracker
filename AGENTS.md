@@ -3,6 +3,7 @@
 Ledger is a phone-first personal finance tracker. The root `index.html` prototype stays working until replaced; the new app direction is Vite, TypeScript, React, and browser-side Supabase. Read the relevant decision docs before changing architecture.
 
 ## Scope and safety
+- `app/` is the Vite, TypeScript, and React PWA; run `npm ci --prefix app` and `npm run build --prefix app` for changes there.
 - GitHub issues and labels define scope. Read each issue and direct dependencies only. Keep one issue per branch, PR, and worktree. A sprint/session may batch up to three independent issues; sequence dependencies and run one developer at a time.
 - Server functions (#32) and final repo layout (#10) are undecided. Do not provision services or add provider-specific code before those decisions. Follow ADR 0001 before real financial data is used.
 - Preserve saved data, JSON import/export, pending-transaction identity, and investment-account reporting. Do not add prototype dependencies or build tooling without owner approval.
