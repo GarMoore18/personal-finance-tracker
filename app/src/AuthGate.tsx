@@ -6,7 +6,7 @@ import { App } from './App';
 function AccessPanel({ children }: { children: ReactNode }) {
   return (
     <main className="access">
-      <h1>Ledger</h1>
+      <h1 className="access-brand"><span className="brand-mark" aria-hidden="true" />Ledger</h1>
       <div className="panel">{children}</div>
     </main>
   );
