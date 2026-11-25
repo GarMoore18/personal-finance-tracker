@@ -99,7 +99,7 @@ def test_sign_in(url, browser):
 def test_account_management(url, browser):
     """Synthetic REST fixture covers UI behavior, not Supabase RLS."""
     page = browser.new_page(viewport={'width': 390, 'height': 844})
-    errors, writes, groups, accounts = [], [], [], []
+    errors, writes, groups, accounts, snapshots = [], [], [], [], []
     next_id = 1
     page.on('pageerror', lambda error: errors.append(str(error)))
     token = '.'.join([encode({'alg': 'HS256', 'typ': 'JWT'}),
@@ -123,9 +123,9 @@ def test_account_management(url, browser):
             route.fulfill(status=200, headers=headers, json=USER)
         elif path.startswith('/rest/v1/'):
             table = path.rsplit('/', 1)[-1]
-            rows = groups if table == 'account_groups' else accounts
+            rows = groups if table == 'account_groups' else accounts if table == 'accounts' else snapshots
             if req.method == 'GET':
-                route.fulfill(status=200, headers=headers, json=rows)
+                route.fulfill(status=200, headers=headers, json=sorted(rows, key=lambda row: row.get('month', ''), reverse=True) if table == 'balance_snapshots' else rows)
             else:
                 payload = req.post_data_json or {}
                 writes.append((table, req.method, payload))
@@ -134,11 +134,24 @@ def test_account_management(url, browser):
                     next_id += 1
                     row.update(payload)
                     rows.append(row)
+                    if table == 'accounts':
+                        snapshots.append({'account_id': row['id'], 'month': row['balance_observed_on'][:7] + '-01', 'balance': row['current_balance'], 'observed_on': row['balance_observed_on']})
                     route.fulfill(status=201, headers=headers, body='')
                 else:
                     row_id = urlsplit(req.url).query.split('id=eq.', 1)[1].split('&', 1)[0]
-                    next(row for row in rows if row['id'] == row_id).update(payload)
-                    route.fulfill(status=204, headers=headers, body='')
+                    updated = next(row for row in rows if row['id'] == row_id)
+                    if table == 'accounts' and payload.get('balance_observed_on', updated['balance_observed_on']) < updated['balance_observed_on']:
+                        route.fulfill(status=409, headers=headers, json={'message': 'A balance observation cannot precede the current observation'})
+                    else:
+                        updated.update(payload)
+                        if table == 'accounts' and 'current_balance' in payload:
+                            month = updated['balance_observed_on'][:7] + '-01'
+                            snapshot = next((item for item in snapshots if item['account_id'] == row_id and item['month'] == month), None)
+                            if snapshot:
+                                snapshot.update(balance=updated['current_balance'], observed_on=updated['balance_observed_on'])
+                            else:
+                                snapshots.append({'account_id': row_id, 'month': month, 'balance': updated['current_balance'], 'observed_on': updated['balance_observed_on']})
+                        route.fulfill(status=204, headers=headers, body='')
         else:
             route.fulfill(status=204, headers=headers, body='')
 
@@ -162,16 +175,42 @@ def test_account_management(url, browser):
     page.get_by_role('button', name='Create account').click()
     expect(page.get_by_text('Everyday checking')).to_be_visible()
     account = accounts[0]
-    assert account['current_balance'] == '125.25' and 'balance_observed_on' in account
+    today = page.evaluate("""() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); }""")
+    next_month_observed = page.evaluate("""(today) => { const [year, month] = today.split('-').map(Number); const d = new Date(Date.UTC(year, month, 3)); return [d.getUTCFullYear(), String(d.getUTCMonth() + 1).padStart(2, '0'), String(d.getUTCDate()).padStart(2, '0')].join('-'); }""", today)
+    assert account['current_balance'] == '125.25' and account['balance_observed_on'] == today
+    assert snapshots[0]['balance'] == '125.25' and snapshots[0]['month'].endswith('-01')
     assert all('user_id' not in payload for _, _, payload in writes)
+
+    page.get_by_role('button', name='View monthly history').first.click()
+    expect(page.get_by_role('list', name='Monthly balance history for Everyday checking')).to_contain_text('125.25')
+    page.get_by_role('button', name='Record balance for Everyday checking').click()
+    page.get_by_label('Current balance').fill('126.75')
+    page.get_by_label('Balance observed on').fill(today)
+    page.get_by_role('button', name='Save balance').click()
+    expect(page.get_by_role('status').filter(has_text='Balance saved')).to_be_visible()
+    assert len([item for item in snapshots if item['account_id'] == account['id']]) == 1
+    assert snapshots[0]['balance'] == '126.75'
+
+    page.get_by_role('button', name='Record balance for Everyday checking').click()
+    page.get_by_label('Current balance').fill('130.25')
+    page.get_by_label('Balance observed on').fill(next_month_observed)
+    page.get_by_role('button', name='Save balance').click()
+    assert sorted(item['month'] for item in snapshots if item['account_id'] == account['id']) == sorted([today[:7] + '-01', next_month_observed[:7] + '-01'])
+    write_count = len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]])
+    page.get_by_role('button', name='Record balance for Everyday checking').click()
+    page.get_by_label('Current balance').fill('131.00')
+    page.get_by_label('Balance observed on').fill(today)
+    page.get_by_role('button', name='Save balance').click()
+    expect(page.get_by_role('alert')).to_contain_text(f'on or after {next_month_observed}')
+    assert len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]]) == write_count
+    expect(page.get_by_role('list', name='Monthly balance history for Everyday checking')).to_contain_text('130.25')
+    assert all(item['balance'] in ('126.75', '130.25') for item in snapshots if item['account_id'] == account['id'])
 
     page.get_by_role('button', name='Add account').click()
     page.get_by_label('Account name').fill('Cash reserve')
     page.get_by_role('button', name='Create account').click()
     expect(page.get_by_text('Cash reserve')).to_be_visible()
     assert accounts[1]['group_id'] is None
-    today = page.evaluate("""() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); }""")
-    assert account['balance_observed_on'] == today
 
     page.get_by_role('button', name='Rename').click()
     page.locator('input[id^="rename-"]').fill('Daily banking')
@@ -197,7 +236,7 @@ def test_account_management(url, browser):
     assert all(method != 'DELETE' for _, method, _ in writes)
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     assert not errors, errors
-    print('PASS account grouping, create/edit, archive/restore, mobile overflow, and no JavaScript errors')
+    print('PASS account grouping, exact balance updates, monthly snapshot history, backdate rejection, archive/restore, mobile overflow, and no JavaScript errors')
     page.close()
 
 
