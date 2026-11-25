@@ -237,3 +237,48 @@ p {
 @media (min-width: 64rem) {
   .panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.access {
+  width: min(100%, 28rem);
+  padding: var(--space-5) var(--space-3);
+}
+
+.access form {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.access input {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 1px solid var(--muted);
+  border-radius: var(--space-1);
+  background: var(--background);
+  color: var(--text);
+  font: inherit;
+}
+
+.access label:not(:first-child) { margin-top: var(--space-2); }
+
+button {
+  width: fit-content;
+  min-height: 44px;
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: var(--space-1);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.access form button,
+.sign-out { margin-top: var(--space-3); }
