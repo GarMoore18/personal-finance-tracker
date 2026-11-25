@@ -1,6 +1,10 @@
 # Personal Finance Tracker (Ledger)
 
-A phone-first spending tracker you can install on your iPhone Home Screen. No build step, no framework.
+A phone-first personal finance tracker. The current production app is a single-file prototype; the clean replacement is planned as a mobile-first PWA built with Vite, TypeScript, React, and Supabase. See [architecture decisions](docs/decisions/) for the recorded direction. Until the replacement is ready, keep the prototype working.
+
+## Current prototype
+
+The root `index.html` app has no build step or framework. It can be installed from Safari on an iPhone and works offline.
 
 - Bottom tab bar (Home, Activity, +, Accounts, More) and an amount-first keypad for adding in ~3 taps
 - Home cards you can hide and reorder: spent vs last month's pace, top categories, pending, accounts
@@ -18,13 +22,13 @@ A phone-first spending tracker you can install on your iPhone Home Screen. No bu
 | `index.html` | The whole app (UI + logic) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | Installable app (PWA) and offline cache |
 | `docs/REQUIREMENTS.md` | Requirements, design decisions, phases, backlog |
+| `docs/decisions/` | Recorded architecture, data, and hosting decisions |
 | `apps-script/Code.gs` | Google Apps Script backend for Sheets sync |
 | `netlify.toml` | Netlify config (static site, no build) |
 
-## Deploy
+## Hosting and deploys
 
-Netlify → Add new site → Import from Git → pick this repo. Leave build command empty and publish directory as `.`.
-Every push to `main` redeploys.
+The prototype is hosted on Netlify Free. Production deploys are manual; pushes to `main` are skipped by the `ignore` rule in `netlify.toml`. Do not remove that rule or trigger a production deploy without the owner's request. See [hosting decision](docs/decisions/0003-hosting.md).
 
 ## Google Sheets sync
 
@@ -51,3 +55,5 @@ Headless-browser tests (iPhone viewport) cover the keypad flow, pending/clear, a
 pip install playwright && playwright install chromium
 python3 tests/test_ledger.py        # set CHROME_PATH to use an existing Chrome
 ```
+
+Pull requests that change behavior should update or add a test and keep the relevant decision or requirements documentation current.
