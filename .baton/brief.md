@@ -11,6 +11,7 @@ researcher:
 developer:
   model: haiku
   effort: low
+  max_parallel: 1
 reviewer:
   model: haiku
   effort: low
