@@ -15,7 +15,7 @@
   <text x="64" y="255" fill="#202925" font-family="system-ui, sans-serif" font-size="34" font-weight="700">$684.30</text>
   <rect x="64" y="275" width="280" height="8" rx="4" fill="#D9E3DA"/>
   <rect x="64" y="275" width="166" height="8" rx="4" fill="#1B5E4B"/>
-  <text x="64" y="311" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">On pace · 59% of monthly budget</text>
+  <text x="64" y="311" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">Similar to last month's pace</text>
 
   <rect x="44" y="352" width="320" height="82" rx="16" fill="#FFFEFB" stroke="#E0E4DE"/>
   <text x="64" y="381" fill="#52615A" font-family="system-ui, sans-serif" font-size="13">NET WORTH</text>
@@ -38,12 +38,13 @@
   <text x="344" y="625" fill="#202925" text-anchor="end" font-family="system-ui, sans-serif" font-size="14" font-weight="600">−$42.50</text>
 
   <path d="M44 674H364" stroke="#E3E6E1"/>
-  <text x="70" y="716" fill="#1B5E4B" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Home</text>
-  <text x="132" y="716" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">Activity</text>
+  <text x="70" y="743" fill="#1B5E4B" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Home</text>
+  <text x="132" y="743" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">Activity</text>
   <circle cx="204" cy="706" r="20" fill="#1B5E4B"/>
+  <text x="204" y="743" fill="#1B5E4B" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Add</text>
   <path d="M204 698v16M196 706h16" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
-  <text x="266" y="716" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">Accounts</text>
-  <text x="337" y="716" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">More</text>
+  <text x="266" y="743" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">Accounts</text>
+  <text x="337" y="743" fill="#66726C" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">More</text>
 
   <rect x="416" y="72" width="360" height="724" rx="30" fill="#FFFEFB" stroke="#D9DED7" stroke-width="2"/>
   <text x="440" y="110" fill="#202925" font-family="system-ui, sans-serif" font-size="13" font-weight="600">9:41</text>
