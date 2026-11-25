@@ -176,6 +176,7 @@ def test_account_management(url, browser):
     expect(page.get_by_text('Everyday checking')).to_be_visible()
     account = accounts[0]
     today = page.evaluate("""() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); }""")
+    next_month_observed = page.evaluate("""(today) => { const [year, month] = today.split('-').map(Number); const d = new Date(Date.UTC(year, month, 3)); return [d.getUTCFullYear(), String(d.getUTCMonth() + 1).padStart(2, '0'), String(d.getUTCDate()).padStart(2, '0')].join('-'); }""", today)
     assert account['current_balance'] == '125.25' and 'balance_observed_on' in account
     assert snapshots[0]['balance'] == '125.25' and snapshots[0]['month'].endswith('-01')
     assert all('user_id' not in payload for _, _, payload in writes)
@@ -192,15 +193,15 @@ def test_account_management(url, browser):
 
     page.get_by_role('button', name='Update balance for Everyday checking').click()
     page.get_by_label('Current balance').fill('130.25')
-    page.get_by_label('Balance observed on').fill('2027-01-03')
+    page.get_by_label('Balance observed on').fill(next_month_observed)
     page.get_by_role('button', name='Save balance').click()
-    assert sorted(item['month'] for item in snapshots if item['account_id'] == account['id']) == sorted([today[:7] + '-01', '2027-01-01'])
+    assert sorted(item['month'] for item in snapshots if item['account_id'] == account['id']) == sorted([today[:7] + '-01', next_month_observed[:7] + '-01'])
     write_count = len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]])
     page.get_by_role('button', name='Update balance for Everyday checking').click()
     page.get_by_label('Current balance').fill('131.00')
     page.get_by_label('Balance observed on').fill(today)
     page.get_by_role('button', name='Save balance').click()
-    expect(page.get_by_role('alert')).to_contain_text('on or after 2027-01-03')
+    expect(page.get_by_role('alert')).to_contain_text(f'on or after {next_month_observed}')
     assert len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]]) == write_count
     expect(page.get_by_role('list', name='Monthly balance history for Everyday checking')).to_contain_text('130.25')
     assert all(item['balance'] in ('126.75', '130.25') for item in snapshots if item['account_id'] == account['id'])
