@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { localToday, normalizeUsdAmount } from './financialInputs';
+import { formatUsd, toCents } from './money';
 
 type AccountKind = 'asset' | 'liability';
 type Group = { id: string; name: string; sort_order: number };
-type Snapshot = { account_id: string; month: string; balance: string; observed_on: string };
+type Snapshot = { account_id: string; month: string; balance: string | number; observed_on: string };
 type Account = {
   id: string;
   group_id: string | null;
   name: string;
   kind: AccountKind;
-  current_balance: string;
+  current_balance: string | number;
   balance_observed_on: string;
   archived_at: string | null;
 };
@@ -20,16 +21,6 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 }
 function formatMonth(month: string) {
   return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(month + 'T00:00:00Z'));
-}
-function formatBalance(value: string) {
-  const negative = value.startsWith('-');
-  const [whole, fraction = ''] = (negative ? value.slice(1) : value).split('.');
-  let grouped = '';
-  for (let index = 0; index < whole.length; index += 1) {
-    if (index > 0 && (whole.length - index) % 3 === 0) grouped += ',';
-    grouped += whole[index];
-  }
-  return (negative ? '-$' : '$') + grouped + '.' + fraction.padEnd(2, '0').slice(0, 2);
 }
 function AccountManager({ client }: { client: SupabaseClient }) {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -97,13 +88,14 @@ function AccountManager({ client }: { client: SupabaseClient }) {
       setFormError('Enter a balance with no more than two decimal places.');
       return;
     }
-    const values = { name, group_id: group || null, kind };
+    const values = { name, group_id: group || null };
     setSaving(true); setFormError(''); setMessage('');
     const editing = accountForm && accountForm !== 'create' ? accountForm : null;
     const result = editing
       ? await client.from('accounts').update(values).eq('id', editing.id)
       : await client.from('accounts').insert({
           ...values,
+          kind,
           current_balance: startingBalance!,
           balance_observed_on: String(form.get('observed-on')),
         });
@@ -149,7 +141,7 @@ function AccountManager({ client }: { client: SupabaseClient }) {
         {expanded ? 'Hide monthly history' : 'View monthly history'}
       </button>
       {expanded && (rows.length ? <ul aria-label={'Monthly balance history for ' + account.name} className="snapshot-list">
-        {rows.map((snapshot) => <li className="snapshot-row" key={snapshot.month}><span>{formatMonth(snapshot.month)} <small>Observed {snapshot.observed_on}</small></span><strong>{formatBalance(snapshot.balance)}</strong></li>)}
+        {rows.map((snapshot) => <li className="snapshot-row" key={snapshot.month}><span>{formatMonth(snapshot.month)} <small>Observed {snapshot.observed_on}</small></span><strong>{formatUsd(toCents(snapshot.balance))}</strong></li>)}
       </ul> : <p className="empty-hint">No monthly balance history yet. Record a balance to start tracking.</p>)}
     </div>;
   }
@@ -175,12 +167,11 @@ function AccountManager({ client }: { client: SupabaseClient }) {
           <form className="account-form account-edit-form" onSubmit={submitAccount}>
             <label>Account name<input name="account-name" defaultValue={account.name} required maxLength={100} /></label>
             <label>Group<select name="group-id" defaultValue={account.group_id ?? ''}><option value="">Ungrouped</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
-            <label>Classification<select name="kind" defaultValue={account.kind}><option value="asset">Asset</option><option value="liability">Liability</option></select></label>
             <div className="form-actions"><button type="submit" disabled={saving}>Save changes</button><button className="button-secondary" type="button" onClick={() => setAccountForm(null)}>Cancel</button></div>
           </form>
         ) : (
           <>
-            <div className="account-info"><strong>{account.name}</strong><span className="account-meta">{account.kind === 'asset' ? 'Asset' : 'Liability'} · {formatBalance(account.current_balance)} · As of {account.balance_observed_on}</span></div>
+            <div className="account-info"><strong>{account.name}</strong><span className="account-meta">{account.kind === 'asset' ? 'Asset' : 'Liability'} · {formatUsd(toCents(account.current_balance))} · As of {account.balance_observed_on}</span></div>
             {balanceForm?.id === account.id && <form className="balance-form" onSubmit={(event) => void submitBalance(event, account)}>
               <label>Current balance<input name="balance" type="text" inputMode="decimal" autoComplete="off" defaultValue={account.current_balance} required /></label>
               <label>Balance observed on<input name="observed-on" type="date" defaultValue={account.balance_observed_on} required /></label>
@@ -235,7 +226,7 @@ function AccountManager({ client }: { client: SupabaseClient }) {
           })}
           <section className="account-group panel" aria-labelledby="ungrouped-heading"><h3 id="ungrouped-heading">Ungrouped</h3>{accountRows(ungrouped)}</section>
           {activeAccounts.length === 0 && groups.length === 0 && <div className="empty-state"><h2>No accounts yet</h2><p>Create a group or add your first account.</p></div>}
-          {archivedAccounts.length > 0 && <section className="account-group panel" aria-labelledby="archived-heading"><h3 id="archived-heading">Archived accounts</h3><ul className="account-list">{archivedAccounts.map((account) => <li className="account-row" key={account.id}><div className="account-info"><strong>{account.name}</strong><span className="account-meta">{account.kind === 'asset' ? 'Asset' : 'Liability'} · {formatBalance(account.current_balance)} · As of {account.balance_observed_on}</span></div>{historyPanel(account)}<button className="button-secondary" type="button" disabled={saving} onClick={() => void toggleArchive(account)}>Restore</button></li>)}</ul></section>}
+          {archivedAccounts.length > 0 && <section className="account-group panel" aria-labelledby="archived-heading"><h3 id="archived-heading">Archived accounts</h3><ul className="account-list">{archivedAccounts.map((account) => <li className="account-row" key={account.id}><div className="account-info"><strong>{account.name}</strong><span className="account-meta">{account.kind === 'asset' ? 'Asset' : 'Liability'} · {formatUsd(toCents(account.current_balance))} · As of {account.balance_observed_on}</span></div>{historyPanel(account)}<button className="button-secondary" type="button" disabled={saving} onClick={() => void toggleArchive(account)}>Restore</button></li>)}</ul></section>}
         </>
       )}
     </div>
