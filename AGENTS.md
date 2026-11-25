@@ -11,7 +11,7 @@ Ledger is a phone-first personal finance tracker. The root `index.html` prototyp
 
 ## Work and merge
 - Use the cheapest capable model; use Haiku at low effort for routine work. Keep any configured reviewer on Haiku and limit review rounds. Use subagents only for independent work or a low-cost required review; do not raise their model tier without need.
-- If blocked, add `status:blocked`, leave one concise issue comment with the reason and next step, and stop. Do not retry in a loop.
+- If blocked, add `status:blocked`, leave one concise issue comment with the reason and next step, and stop work on that issue. Continue only with other independent issues already in the sprint. Do not retry in a loop.
 - Run `python3 tests/test_ledger.py` for behavior changes and update relevant docs. Merge only after required CI passes and main branch protection remains enabled; never bypass it.
 - Keep context scoped and do not reread the whole repo. Request only needed fields from tools; avoid dumping tool catalogs, full API payloads, whole issue threads, or full diffs. Use compact `gh --json`/`--jq` or Baton status/usage output, and read a PR patch only when reviewing that PR.
 - Maintain a concise handoff in ignored `.baton/session-state.md`; record issues, status, checks, next step, and usage estimate only. Never put secrets or financial data there. Report the per-issue `baton usage` estimate when done; output-token counts are lower bounds.
