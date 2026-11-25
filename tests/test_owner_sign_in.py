@@ -125,10 +125,20 @@ def test_account_management(url, browser):
             table = path.rsplit('/', 1)[-1]
             rows = groups if table == 'account_groups' else accounts if table == 'accounts' else snapshots
             if req.method == 'GET':
-                route.fulfill(status=200, headers=headers, json=sorted(rows, key=lambda row: row.get('month', ''), reverse=True) if table == 'balance_snapshots' else rows)
+                if table == 'accounts':
+                    rows = [{**row, 'current_balance': float(row['current_balance'])} for row in rows]
+                elif table == 'balance_snapshots':
+                    rows = [{**row, 'balance': float(row['balance'])}
+                            for row in sorted(rows, key=lambda row: row['month'], reverse=True)]
+                route.fulfill(status=200, headers=headers, json=rows)
             else:
                 payload = req.post_data_json or {}
                 writes.append((table, req.method, payload))
+                if table == 'accounts' and req.method == 'PATCH':
+                    allowed = {'group_id', 'name', 'current_balance', 'balance_observed_on', 'archived_at'}
+                    if payload.keys() - allowed:
+                        route.fulfill(status=403, headers=headers, json={'message': 'Disallowed account column'})
+                        return
                 if req.method == 'POST':
                     row = {'id': f'synthetic-{next_id}', 'sort_order': len(groups)} if table == 'account_groups' else {'id': f'synthetic-{next_id}', 'archived_at': None}
                     next_id += 1
@@ -218,9 +228,10 @@ def test_account_management(url, browser):
     expect(page.get_by_role('heading', name='Daily banking')).to_be_visible()
     page.get_by_role('button', name='Edit Everyday checking').click()
     page.get_by_label('Account name').fill('Joint checking')
-    page.get_by_label('Classification').select_option('liability')
+    page.locator('select[name=group-id]').select_option(label='Ungrouped')
     page.get_by_role('button', name='Save changes').click()
     expect(page.get_by_text('Joint checking')).to_be_visible()
+    assert account['group_id'] is None and account['kind'] == 'asset'
     writes_before_archive = len(writes)
     page.get_by_role('button', name='Archive Joint checking', exact=True).click()
     confirmation = page.get_by_role('group', name='Confirm archive Joint checking')
