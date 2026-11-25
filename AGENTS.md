@@ -4,8 +4,8 @@ Phone-first personal finance tracker for one person. Today it is a single-file p
 
 ## Current direction (read first)
 - The GitHub issues and their labels (Phase 1 to 7, Planned feature, Future enhancement) are the source of truth for scope. `docs/REQUIREMENTS.md` describes the prototype.
-- Decided: database, auth, and private storage use Supabase (`docs/decisions/0001-database-auth-storage.md`).
-- Not decided yet: hosting (#70) and the frontend/architecture (#3). Until those are recorded, do not provision services, add provider-specific code, or choose the stack. Comment with a short plan and options instead. Follow the conditions in the decision record before any real financial data is used.
+- Decided: database, auth, and private storage use Supabase (`docs/decisions/0001-database-auth-storage.md`). The new app is a static, mobile-first PWA using Vite, TypeScript, and React, talking to Supabase from the browser (`docs/decisions/0002-frontend-architecture.md`).
+- Not decided yet: hosting and where server-side functions run (#70), and repo layout (#10). Until those are recorded, do not provision services or add provider-specific code. Comment with a short plan and options instead. Follow the conditions in ADR 0001 before any real financial data is used.
 - The existing app is reference material for the clean implementation. Until it is replaced, keep it working.
 
 ## Where things are
