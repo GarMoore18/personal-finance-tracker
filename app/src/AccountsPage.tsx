@@ -208,7 +208,7 @@ function AccountManager({ client }: { client: SupabaseClient }) {
               </div>
             ) : (
               <div className="account-actions">
-                <button className="button-secondary" type="button" aria-label={'Update balance for ' + account.name} onClick={() => { setFormError(''); setMessage(''); setBalanceForm(balanceForm?.id === account.id ? null : account); }}>Update balance</button>
+                <button className="button-secondary" type="button" aria-label={'Record balance for ' + account.name} onClick={() => { setFormError(''); setMessage(''); setBalanceForm(balanceForm?.id === account.id ? null : account); }}>Update balance</button>
                 <button className="button-secondary" type="button" aria-label={'Edit ' + account.name} onClick={() => { setFormError(''); setAccountForm(account); }}>Edit</button>
                 <button className="button-secondary" type="button" disabled={saving} aria-label={'Archive ' + account.name} onClick={() => setConfirmArchive(account.id)}>Archive</button>
               </div>
