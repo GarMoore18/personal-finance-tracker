@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { dayLabel, loadMonth } from './transactions';
+import { dayLabel, groupDays, loadMonth } from './transactions';
 import type { Day, Transaction } from './transactions';
 import { ExpenseForm } from './ExpenseForm';
 import { formatUsd, toCents } from './money';
@@ -15,6 +15,8 @@ export function ActivityPage({ client, month, onMonthChange }: {
   const [attempt, setAttempt] = useState(0);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [message, setMessage] = useState('');
+  const [search, setSearch] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
   const refreshing = result !== undefined && result.month === month && result.attempt !== attempt;
 
   function finishEdit(confirmation: string) {
@@ -32,6 +34,12 @@ export function ActivityPage({ client, month, onMonthChange }: {
   }, [client, month, attempt]);
 
   const loaded = result?.month === month ? result : undefined;
+  const query = search.trim().toLocaleLowerCase();
+  const days = loaded?.days;
+  const visibleDays = query && days
+    ? groupDays(days.flatMap((day) => day.transactions.filter((transaction) =>
+      transaction.description.toLocaleLowerCase().includes(query))))
+    : days;
   return (
     <section className="panel activity-panel" aria-label="Expense history">
       <div className="activity-toolbar">
@@ -46,6 +54,17 @@ export function ActivityPage({ client, month, onMonthChange }: {
         }} /></label>
         <a className="action" href="#/add">Add an expense</a>
       </div>
+      <div className="activity-toolbar activity-search" role="search" aria-label="Expenses in the selected month">
+        <label>Search descriptions
+          <input ref={searchInput} type="search" value={search} disabled={!!editing} onChange={(event) => {
+            setSearch(event.currentTarget.value);
+          }} />
+        </label>
+        {search && <button type="button" className="button-secondary" disabled={!!editing} onClick={() => {
+          setSearch('');
+          searchInput.current?.focus();
+        }}>Clear search</button>}
+      </div>
       {message && <p role="status">{message}</p>}
       {!loaded && <p role="status">Loading expenses…</p>}
       {loaded?.days === null && (
@@ -57,9 +76,12 @@ export function ActivityPage({ client, month, onMonthChange }: {
           }}>Retry</button>
         </>
       )}
-      {loaded?.days?.length === 0 && <p>No expenses for this month.</p>}
-      {loaded?.days?.map((day, index) => (
-        <details key={day.date} className="activity-day" open={index === 0}>
+      {days?.length === 0 && <p>No expenses for this month.</p>}
+      {query && !!days?.length && visibleDays?.length === 0 && (
+        <p role="status">No expenses match your search for this month.</p>
+      )}
+      {visibleDays?.map((day, index) => (
+        <details key={query ? 'search-' + day.date : day.date} className="activity-day" open={!!query || index === 0}>
           <summary>
             <span>{dayLabel.format(new Date(day.date + 'T00:00:00Z'))}</span>
             <strong>{formatUsd(day.total)}</strong>
