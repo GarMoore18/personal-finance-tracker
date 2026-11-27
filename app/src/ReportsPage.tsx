@@ -6,6 +6,7 @@ import {
   spendingByCategory, spendingTrend,
 } from './reports';
 import type { BalancesReport, ReportPoint, SpendingReport } from './reports';
+import { ReportDownload } from './ReportDownload';
 
 function ReportChart({ points, label }: { points: ReportPoint[]; label: string }) {
   const signed = points.some(({ cents }) => cents !== null && cents < 0n);
@@ -38,6 +39,8 @@ function Spending({ report, months, month, setMonth }: {
 }) {
   const categories = spendingByCategory(report, month);
   const total = categories.reduce((sum, { cents }) => sum + (cents ?? 0n), 0n);
+  const trend = spendingTrend(report, months);
+  const period = months[0] + '-to-' + months[months.length - 1];
   return (
     <div className="report-grid">
       <section className="panel report-panel" aria-labelledby="category-report">
@@ -50,13 +53,17 @@ function Spending({ report, months, month, setMonth }: {
         {categories.length ? <>
           <p className="report-summary"><strong>{formatUsd(total)}</strong><span>Total spending</span></p>
           <ReportChart points={categories} label="Category totals in USD" />
+          <ReportDownload title="spending by category" filename={`ledger-spending-by-category-${month}.csv`}
+            points={categories} total={total} />
         </> : <p className="form-help">No expenses for this month.</p>}
       </section>
       <section className="panel report-panel" aria-labelledby="spending-report">
         <h2 id="spending-report">Spending trend</h2>
         <p className="form-help">Monthly expenses in USD</p>
-        {report.size ? <ReportChart points={spendingTrend(report, months)} label="Monthly spending in USD" />
-          : <p className="form-help">No expenses in this period.</p>}
+        {report.size ? <>
+          <ReportChart points={trend} label="Monthly spending in USD" />
+          <ReportDownload title="spending trend" filename={`ledger-spending-trend-${period}.csv`} points={trend} />
+        </> : <p className="form-help">No expenses in this period.</p>}
       </section>
     </div>
   );
@@ -66,8 +73,11 @@ function Balances({ report, months, selectedAccount, setAccountId }: {
   report: BalancesReport; months: string[]; selectedAccount: string; setAccountId: (id: string) => void;
 }) {
   const defaultAccount = report.accounts.find(({ archived_at }) => !archived_at) ?? report.accounts[0];
-  const accountId = selectedAccount || defaultAccount?.id || '';
+  const account = report.accounts.find(({ id }) => id === selectedAccount) ?? defaultAccount;
+  const accountId = account?.id ?? '';
   const history = balanceTrend(report.histories.get(accountId), months);
+  const worth = balanceTrend(report.totals, months);
+  const period = months[0] + '-to-' + months[months.length - 1];
   return (
     <div className="report-grid">
       <section className="panel report-panel" aria-labelledby="balance-report">
@@ -81,13 +91,16 @@ function Balances({ report, months, selectedAccount, setAccountId }: {
         {history.some(({ cents }) => cents !== null) ? <>
           <p className="form-help">Latest recorded balance each month. A dash means no observation.</p>
           <ReportChart points={history} label="Monthly account balances in USD" />
+          <ReportDownload title="account balance history" filename={`ledger-account-balances-${period}.csv`}
+            points={history} account={account?.name} />
         </> : <p className="form-help">{accountId ? 'No balances recorded in this period.' : 'No accounts yet.'}</p>}
       </section>
       <section className="panel report-panel" aria-labelledby="worth-report">
         <h2 id="worth-report">Net worth history</h2>
         {report.totals.size ? <>
           <p className="form-help">Assets minus liabilities. Uses each account’s latest recorded balance and excludes it from its archive month onward.</p>
-          <ReportChart points={balanceTrend(report.totals, months)} label="Monthly net worth in USD" />
+          <ReportChart points={worth} label="Monthly net worth in USD" />
+          <ReportDownload title="net worth history" filename={`ledger-net-worth-${period}.csv`} points={worth} />
         </> : <p className="form-help">No balance history for this period.</p>}
       </section>
     </div>

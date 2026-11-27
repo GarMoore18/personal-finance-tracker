@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { toCents } from './money';
 import { currentMonth } from './transactions';
 
-export type ReportPoint = { label: string; cents: bigint | null };
+export type ReportPoint = { period: string; label: string; cents: bigint | null };
 type CategoryTotal = { name: string; cents: bigint };
 type Expense = { occurred_on: string; amount: number | string; category_id: string; categories: { name: string } | null };
 type Account = { id: string; name: string; kind: 'asset' | 'liability'; archived_at: string | null };
@@ -102,16 +102,17 @@ export function spendingByCategory(report: SpendingReport, month: string): Repor
   const categories = [...(report.get(month)?.values() ?? [])];
   return categories.sort((a, b) => a.cents === b.cents
     ? a.name.localeCompare(b.name) : a.cents > b.cents ? -1 : 1)
-    .map(({ name, cents }) => ({ label: name, cents }));
+    .map(({ name, cents }) => ({ period: month, label: name, cents }));
 }
 
 export function spendingTrend(report: SpendingReport, months: string[]): ReportPoint[] {
   return months.map((month) => ({
+    period: month,
     label: reportMonthLabel(month),
     cents: [...(report.get(month)?.values() ?? [])].reduce((total, category) => total + category.cents, 0n),
   }));
 }
 
 export function balanceTrend(history: Map<string, bigint> | undefined, months: string[]): ReportPoint[] {
-  return months.map((month) => ({ label: reportMonthLabel(month), cents: history?.get(month) ?? null }));
+  return months.map((month) => ({ period: month, label: reportMonthLabel(month), cents: history?.get(month) ?? null }));
 }
