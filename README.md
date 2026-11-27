@@ -15,7 +15,9 @@ The app is under active development. Do not use real financial data until produc
 
 Choose **Quick add expense** on the dashboard to record one or more expenses. The form starts with today's date and focuses the amount field. After a successful save, the dashboard refreshes and the form clears for the next expense.
 
-In Activity, select a month and use **Search descriptions** to find expenses by any part of their description. Matching ignores capitalization and surrounding spaces. Day totals reflect the visible expenses. **Clear search** restores all expenses for the selected month.
+In Activity, select a month and use **Search descriptions** to find expenses by any part of their description. Matching ignores capitalization and surrounding spaces. Day totals reflect the visible expenses. **Clear search** removes the description query.
+
+Open **Filters** to narrow the selected month by category, dates, or amounts. Date and amount bounds are inclusive and can be used on their own. Filters combine with description search. **Reset filters** clears the category, date, and amount filters while keeping the search text.
 
 ## Supabase configuration
 
