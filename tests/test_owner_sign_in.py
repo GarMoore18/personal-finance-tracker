@@ -412,6 +412,16 @@ def test_manual_expense(url, browser, viewport):
     page.get_by_label('Notes (optional)').fill('  Weekly shop  ')
     save = page.get_by_role('button', name='Save expense')
     assert_layout(page, save, page.get_by_label('Amount (USD)'), page.get_by_label('Category'))
+    if viewport['width'] == 320:
+        page.get_by_role('main').focus()
+        for _ in range(12):
+            page.keyboard.press('Tab')
+            if save.evaluate('(button) => button === document.activeElement'):
+                break
+        expect(save).to_be_focused()
+        save_box = save.bounding_box()
+        nav_box = page.get_by_role('navigation', name='Main navigation').bounding_box()
+        assert save_box['y'] + save_box['height'] <= nav_box['y'], 'Bottom navigation covers Save expense'
     page.get_by_label('Amount (USD)').fill('12.345')
     save.click()
     expect(page.get_by_role('alert')).to_contain_text('up to two decimal places')
