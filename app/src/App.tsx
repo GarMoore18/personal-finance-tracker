@@ -31,7 +31,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
   const [theme, setTheme] = useState(initialTheme);
   const [dashboard, setDashboard] = useState(loadDashboardPreferences);
   const [activityMonth, setActivityMonth] = useState(currentMonth);
-  const [expenseSaved, setExpenseSaved] = useState(false);
+  const [expenseSavedOn, setExpenseSavedOn] = useState<Page | null>(null);
   const expenseOrigin = useRef<Page>(pages[0]);
   const main = useRef<HTMLElement>(null);
   const previousPage = useRef(page);
@@ -41,8 +41,8 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
       const next = currentPage();
       if (next.id === 'add') {
         if (previousPage.current.id !== 'add') expenseOrigin.current = previousPage.current;
-        setExpenseSaved(false);
       }
+      setExpenseSavedOn((savedOn) => savedOn === next ? savedOn : null);
       setPage(next);
     }
     window.addEventListener('hashchange', navigate);
@@ -85,7 +85,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
       </header>
       <main id="main-content" ref={main} tabIndex={-1}>
         {page.id !== 'home' && <h1>{page.heading}</h1>}
-        <div role="status">{expenseSaved && <p className="expense-confirmation">Expense saved.</p>}</div>
+        <div role="status">{expenseSavedOn === page && <p className="expense-confirmation">Expense saved.</p>}</div>
         {page.id === 'home' && <HomePage client={client} widgets={dashboard}
           onCurrentActivity={() => setActivityMonth(currentMonth())} />}
         {page.id === 'activity' && (
@@ -93,8 +93,10 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
         )}
         {page.id === 'add' && (
           <ExpenseForm client={client} onSaved={() => {
-            setExpenseSaved(true);
-            if (currentPage().id === 'add') location.hash = '#/' + expenseOrigin.current.id;
+            if (currentPage().id === 'add') {
+              setExpenseSavedOn(expenseOrigin.current);
+              location.hash = '#/' + expenseOrigin.current.id;
+            }
           }} />
         )}
         {page.id === 'accounts' && <AccountsPage client={client} />}

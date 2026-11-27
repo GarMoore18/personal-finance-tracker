@@ -583,6 +583,19 @@ button:disabled {
 .overview-list small { display: block; color: var(--muted); }
 .overview-day + .overview-day { border-top: 1px solid var(--border); }
 .overview-day h3 { color: var(--muted); font-size: 0.8rem; margin: var(--space-1) 0; }
+@media (max-width: 47.999rem) {
+  .overview, .overview-grid { gap: var(--space-2); }
+  .overview-heading { padding-bottom: var(--space-1); }
+  .overview .panel { padding: var(--space-3); }
+  .overview-spending-meta span { font-size: 0.75rem; padding-inline: 0.4rem; }
+  .overview-spending .overview-amount {
+    margin-block: var(--space-1) var(--space-2);
+    font-size: clamp(2rem, 9vw, 3rem);
+  }
+  .overview-chart-bars { height: 1.5rem; }
+  .overview-accounts .overview-amount { margin-block: 0 var(--space-2); }
+  .overview-list li { padding-block: var(--space-1); }
+}
 @media (min-width: 48rem) {
   .overview-grid:has(.overview-accounts):has(:is(.overview-spending, .overview-activity)) {
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);

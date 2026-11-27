@@ -4,6 +4,8 @@ Keep the amount-first flow and familiar bottom navigation. Use cool neutral surf
 
 The [mobile visual sample](UX-MOBILE-MOCKUP.svg) applies this direction to Home and Add using synthetic data. It is a representative design mockup; issue #10 will define the implementation tokens.
 
+On phones, keep Home's summary cards compact so the start of the recent expenses list appears sooner. The spending card requests only amount and date for its calculation. Quick Add reloads spending and recent expenses after a save, while account balances are refreshed when Home opens.
+
 On phones, pin navigation above the safe area and use one content column. On desktop, move navigation to the left, limit reading width, and use two columns where the content is independent. Keep forms narrow. Follow [Apple's tab bar guidance](https://developer.apple.com/design/human-interface-guidelines/tab-bars) and [WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
 [Mobile wireframes](UX-WIREFRAMES.md) show the primary paths. Review them against [the UX acceptance checklist](UX-REVIEW.md) when implementing each screen.

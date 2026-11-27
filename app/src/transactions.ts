@@ -11,15 +11,17 @@ export type Transaction = {
   notes: string | null;
   categories: { name: string } | null;
 };
-export type Day = { date: string; total: bigint; transactions: Transaction[] };
+export type DailyTotal = { date: string; total: bigint };
+export type Day = DailyTotal & { transactions: Transaction[] };
+const transactionColumns = 'id, occurred_on, description, amount, category_id, notes, categories(name)';
 
 export const dayLabel = new Intl.DateTimeFormat(undefined, {
   weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
 });
 
 
-export function transactionQuery(client: SupabaseClient) {
-  return client.from('transactions').select('id, occurred_on, description, amount, category_id, notes, categories(name)')
+export function transactionQuery(client: SupabaseClient, columns = transactionColumns) {
+  return client.from('transactions').select(columns)
     .order('occurred_on', { ascending: false }).order('created_at', { ascending: false }).order('id');
 }
 
@@ -35,23 +37,47 @@ export function groupDays(transactions: Transaction[]) {
   return [...days.values()];
 }
 
-export async function loadMonth(client: SupabaseClient, month: string, signal: AbortSignal) {
+async function loadMonthRows<Row>(client: SupabaseClient, month: string, signal: AbortSignal, columns: string) {
   const [year, monthNumber] = month.split('-').map(Number);
   const nextMonth = monthNumber === 12
     ? String(year + 1).padStart(4, '0') + '-01'
     : String(year).padStart(4, '0') + '-' + String(monthNumber + 1).padStart(2, '0');
-  const rows: Transaction[] = [];
+  const rows: Row[] = [];
   const batchSize = 200;
   for (let offset = 0; !signal.aborted; offset += batchSize) {
-    const { data, error } = await transactionQuery(client)
+    const { data, error } = await transactionQuery(client, columns)
       .gte('occurred_on', month + '-01').lt('occurred_on', nextMonth + '-01')
       .range(offset, offset + batchSize - 1).abortSignal(signal)
-      .overrideTypes<Transaction[], { merge: false }>();
+      .overrideTypes<Row[], { merge: false }>();
     if (signal.aborted || error) return null;
     rows.push(...data);
-    if (data.length < batchSize) return groupDays(rows);
+    if (data.length < batchSize) return rows;
   }
   return null;
+}
+
+export async function loadMonth(client: SupabaseClient, month: string, signal: AbortSignal) {
+  const rows = await loadMonthRows<Transaction>(client, month, signal, transactionColumns);
+  return rows ? groupDays(rows) : null;
+}
+
+export async function loadMonthSpending(client: SupabaseClient, month: string, signal: AbortSignal) {
+  const rows = await loadMonthRows<Pick<Transaction, 'occurred_on' | 'amount'>>(
+    client, month, signal, 'occurred_on,amount',
+  );
+  if (!rows) return null;
+  const byDate = new Map<string, bigint>();
+  let total = 0n;
+  for (const row of rows) {
+    const cents = toCents(row.amount);
+    total += cents;
+    byDate.set(row.occurred_on, (byDate.get(row.occurred_on) ?? 0n) + cents);
+  }
+  return {
+    count: rows.length,
+    total,
+    days: Array.from(byDate, ([date, total]) => ({ date, total })),
+  };
 }
 
 export function currentMonth() {
