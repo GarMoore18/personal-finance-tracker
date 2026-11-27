@@ -6,6 +6,7 @@ import { currentMonth } from './transactions';
 import { HomePage } from './HomePage';
 import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
+import { CategorySettings } from './CategorySettings';
 import { changeAppearance, initialTheme, themes } from './appearance';
 import { dashboardWidgets, loadDashboardPreferences, saveDashboardPreferences } from './dashboardPreferences';
 
@@ -17,9 +18,11 @@ const pages = [
   { id: 'more', label: 'More', icon: '···', heading: 'Settings' },
 ] as const;
 
-type Page = (typeof pages)[number];
+const categoriesPage = { id: 'categories', heading: 'Categories' } as const;
+type Page = (typeof pages)[number] | typeof categoriesPage;
 
 function currentPage(): Page {
+  if (location.hash === '#/categories') return categoriesPage;
   return pages.find(({ id }) => location.hash === '#/' + id) ?? pages[0];
 }
 
@@ -95,6 +98,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
           }} />
         )}
         {page.id === 'accounts' && <AccountsPage client={client} />}
+        {page.id === 'categories' && <CategorySettings client={client} />}
         {page.id === 'more' && (
           <>
             <fieldset className="panel appearance">
@@ -128,6 +132,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
                 </label>
               ))}
             </fieldset>
+            <a className="action" href="#/categories">Manage categories</a>
             {signOut}
           </>
         )}
