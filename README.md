@@ -17,6 +17,8 @@ Choose **Quick add expense** on the dashboard to record one or more expenses. Th
 
 Under **More → Dashboard widgets**, choose which cards appear on Home. All cards are visible by default, and changes are remembered in the current browser.
 
+Under **More → Manage categories**, create a category or edit its name, color, and icon. Renaming a category updates its label on existing expenses and keeps those expenses linked to it.
+
 In Activity, select a month and use **Search descriptions** to find expenses by any part of their description. Matching ignores capitalization and surrounding spaces. Day totals reflect the visible expenses. **Clear search** removes the description query.
 
 Open **Filters** to narrow the selected month by category, dates, or amounts. Date and amount bounds are inclusive and can be used on their own. Filters combine with description search. **Reset filters** clears the category, date, and amount filters while keeping the search text.

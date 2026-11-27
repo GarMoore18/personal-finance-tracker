@@ -270,6 +270,9 @@ def test_manual_expense(url, browser):
                      encode({'sub': USER['id'], 'exp': int(time.time()) + 3600}),
                      encode('synthetic signature')])
     category_id = '00000000-0000-4000-8000-000000000002'
+    categories = {category_id: {'id': category_id, 'name': 'Groceries', 'color': '#527435',
+                                'icon': 'basket', 'sort_order': 10}}
+    category_writes = []
     saved, attempts, changes = [], [], []
     category_requests = 0
     overview_ready = False
@@ -289,18 +292,32 @@ def test_manual_expense(url, browser):
         elif path == '/auth/v1/user':
             route.fulfill(headers=headers, json=USER)
         elif path == '/rest/v1/categories':
-            category_requests += 1
-            if category_requests == 1:
-                route.fulfill(status=400, headers=headers, json={'message': 'Synthetic load failure'})
-            else:
-                route.fulfill(headers=headers, json=[{'id': category_id, 'name': 'Groceries'}])
+            if request.method == 'GET':
+                category_requests += 1
+                if category_requests == 1:
+                    route.fulfill(status=400, headers=headers, json={'message': 'Synthetic load failure'})
+                else:
+                    route.fulfill(headers=headers, json=list(categories.values()))
+            elif request.method == 'POST':
+                category_writes.append(request.post_data_json)
+                if len(category_writes) == 1:
+                    route.fulfill(status=400, headers=headers, json={'message': 'Synthetic category save failure'})
+                else:
+                    categories['custom'] = {'id': 'custom', 'sort_order': 0, **request.post_data_json}
+                    route.fulfill(status=201, headers=headers, json=categories['custom'])
+            elif request.method == 'PATCH':
+                assert parse_qs(urlsplit(request.url).query)['id'] == [f'eq.{category_id}']
+                category_writes.append(request.post_data_json)
+                categories[category_id].update(request.post_data_json)
+                route.fulfill(headers=headers, json=categories[category_id])
         elif path == '/rest/v1/transactions' and request.method == 'GET':
             dates = parse_qs(urlsplit(request.url).query).get('occurred_on', [])
             rows = []
             if overview_ready:
                 rows = [
                     *[{**expense, 'id': f'quick-{index}', 'amount': float(expense['amount']),
-                       'categories': {'name': 'Groceries'}} for index, expense in enumerate(saved)],
+                       'categories': {'name': categories[expense['category_id']]['name']}}
+                      for index, expense in enumerate(saved)],
                     {'id': '4', 'occurred_on': today, 'amount': 10.10,
                      'description': 'Coffee beans', 'categories': {'name': 'Groceries'}},
                     {'id': '5', 'occurred_on': today, 'amount': 0.20,
@@ -544,6 +561,40 @@ def test_manual_expense(url, browser):
     expect(page.get_by_role('region', name='Net worth')).to_have_count(0)
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('PASS dashboard widget defaults, hiding, persistence, and restoring a widget')
+
+    navigation.get_by_role('link', name='More').click()
+    page.get_by_role('link', name='Manage categories').click()
+    settings = page.get_by_role('region', name='Manage categories')
+    settings.get_by_role('button', name='Add category').click()
+    form = settings.get_by_role('form', name='New category')
+    expect(form.get_by_label('Name')).to_be_focused()
+    form.get_by_label('Name').fill('  Cycling  ')
+    form.get_by_label('Color').fill('#345678')
+    form.get_by_label('Icon').select_option('bus')
+    form.get_by_role('button', name='Save category').click()
+    expect(form.get_by_role('alert')).to_contain_text('Your entries are still here')
+    expect(form.get_by_label('Name')).to_have_value('  Cycling  ')
+    form.get_by_role('button', name='Save category').click()
+    expect(settings.get_by_role('status')).to_have_text('Category created.')
+    assert categories['custom']['name'] == 'Cycling'
+    assert categories['custom']['color'] == '#345678' and categories['custom']['icon'] == 'bus'
+    expect(settings.get_by_role('button', name='Add category')).to_be_focused()
+
+    settings.get_by_role('button', name='Edit category Groceries').click()
+    form = settings.get_by_role('form', name='Edit category')
+    expect(form.get_by_label('Color')).to_have_value('#527435')
+    expect(form.get_by_label('Icon')).to_have_value('basket')
+    form.get_by_label('Name').fill('Food at home')
+    form.get_by_role('button', name='Save category').click()
+    expect(settings.get_by_role('status')).to_have_text('Category updated.')
+    assert set(category_writes[-1]) == {'name', 'color', 'icon'}
+    assert all(expense['category_id'] == category_id for expense in saved)
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    navigation.get_by_role('link', name='Home').click()
+    expect(page.get_by_role('region', name='Recent expenses')).to_contain_text('Food at home')
+    navigation.get_by_role('link', name='Add an expense').click()
+    page.get_by_label('Category').select_option(label='Cycling')
+    print('PASS category creation, failed save recovery, appearance preferences, and reference-safe rename')
     page.close()
 
 

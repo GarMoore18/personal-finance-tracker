@@ -315,7 +315,7 @@ button:disabled {
 .account-form, .group-form { display: grid; gap: var(--space-2); min-width: 0; }
 .account-edit-form { flex: 1 1 100%; }
 .account-form label, .group-form label, .expense-form label { display: grid; gap: 0.35rem; font-weight: 650; }
-.account-form input, .account-form select, .group-form input,
+.account-form input, .account-form select, .group-form input, .group-form select,
 .expense-form input, .expense-form select, .expense-form textarea, .activity-toolbar input,
 .activity-filters input, .activity-filters select {
   width: 100%;
@@ -329,6 +329,26 @@ button:disabled {
   font: inherit;
 }
 .form-help { margin: 0; }
+.category-settings { max-width: 38rem; }
+.category-settings form { margin-block: var(--space-2); }
+.category-settings fieldset { margin: 0; padding: 0; border: 0; }
+.category-settings input[type='color'] { width: 4rem; padding: var(--space-1); }
+.category-settings ul { list-style: none; margin-block: var(--space-2) 0; padding: 0; }
+.category-settings li, .category-settings li > div { display: flex; align-items: center; gap: var(--space-2); }
+.category-settings li {
+  justify-content: space-between;
+  padding-block: var(--space-1);
+  border-top: 1px solid var(--border);
+}
+.category-settings li > div { min-width: 0; overflow-wrap: anywhere; }
+.category-icon {
+  display: grid;
+  flex: 0 0 2rem;
+  place-items: center;
+  height: 2rem;
+  border: 2px solid;
+  border-radius: var(--space-1);
+}
 .form-actions { flex-wrap: wrap; margin-top: var(--space-1); }
 .button-secondary {
   border: 1px solid var(--border);
