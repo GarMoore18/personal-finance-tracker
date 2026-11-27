@@ -2,6 +2,7 @@
 import base64
 import json
 import os
+import re
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -557,6 +558,8 @@ def test_manual_expense(url, browser, viewport):
     overview_ready = True
     page.get_by_role('link', name='Home', exact=True).click()
     expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$10.30')
+    expect(page.get_by_role('img', name='Daily totals', exact=False)).to_have_accessible_name(
+        re.compile(r'Peak: \$10\.30 on'))
     expect(page.get_by_role('region', name='Net worth')).to_contain_text('-$25.05')
     expect(page.get_by_role('list', name='Account balances')).to_contain_text('$75.95')
     expect(page.get_by_role('region', name='Recent expenses')).to_contain_text('Coffee beans')

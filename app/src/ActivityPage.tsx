@@ -77,7 +77,7 @@ export function ActivityPage({ client, month, onMonthChange }: {
     : days;
   return (
     <section className="panel activity-panel" aria-label="Expense history">
-      <div className="activity-toolbar">
+      <div className="activity-controls">
         <label>Month <input type="month" value={month} disabled={!!editing || refreshing} onChange={(event) => {
           const value = event.currentTarget.value;
           if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value) && !value.startsWith('0000')) {
@@ -88,7 +88,17 @@ export function ActivityPage({ client, month, onMonthChange }: {
             onMonthChange(value);
           }
         }} /></label>
-        <a className="action" href="#/add">Add an expense</a>
+        <div className="activity-search" role="search" aria-label="Expenses in the selected month">
+          <label>Search descriptions
+            <input ref={searchInput} type="search" value={search} disabled={!!editing} onChange={(event) => {
+              setSearch(event.currentTarget.value);
+            }} />
+          </label>
+          {search && <button type="button" className="button-secondary" disabled={!!editing} onClick={() => {
+            setSearch('');
+            searchInput.current?.focus();
+          }}>Clear search</button>}
+        </div>
       </div>
       <details className="activity-filters">
         <summary>Filters{filterCount > 0 && ` (${filterCount} active)`}</summary>
@@ -131,17 +141,6 @@ export function ActivityPage({ client, month, onMonthChange }: {
             onClick={() => setFilters(emptyFilters)}>Reset filters</button>}
         </fieldset>
       </details>
-      <div className="activity-toolbar activity-search" role="search" aria-label="Expenses in the selected month">
-        <label>Search descriptions
-          <input ref={searchInput} type="search" value={search} disabled={!!editing} onChange={(event) => {
-            setSearch(event.currentTarget.value);
-          }} />
-        </label>
-        {search && <button type="button" className="button-secondary" disabled={!!editing} onClick={() => {
-          setSearch('');
-          searchInput.current?.focus();
-        }}>Clear search</button>}
-      </div>
       {message && <p role="status">{message}</p>}
       {!loaded && <p role="status">Loading expenses…</p>}
       {loaded?.days === null && (
