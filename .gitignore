@@ -13,6 +13,8 @@ secrets.*
 *.local.*
 ledger-backup-*.json
 ledger-*.xlsx
+ledger-expenses-*.csv
+ledger-accounts-*.csv
 transactions-*.csv
 
 # Tooling
