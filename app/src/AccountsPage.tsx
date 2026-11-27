@@ -62,14 +62,18 @@ function AccountManager({ client }: { client: SupabaseClient }) {
     if (saving) return;
     const form = new FormData(event.currentTarget);
     const name = String(form.get('group-name') ?? '').trim();
-    if (!name) return;
+    if (!name) {
+      setFormError('Enter a group name.');
+      event.currentTarget.querySelector<HTMLInputElement>('[name="group-name"]')?.focus();
+      return;
+    }
     setSaving(true); setFormError(''); setMessage('');
     const id = editingGroup;
     const result = id
-      ? await client.from('account_groups').update({ name }).eq('id', id)
+      ? await client.from('account_groups').update({ name }).eq('id', id).select('id').maybeSingle()
       : await client.from('account_groups').insert({ name });
     setSaving(false);
-    if (result.error) { setFormError('Could not save this group. Try again.'); return; }
+    if (result.error || (id && !result.data)) { setFormError('Could not save this group. Your entries are still here.'); return; }
     setMessage(id ? 'Group renamed.' : 'Group created.');
     setEditingGroup(null); setShowGroupForm(false);
     await load();
@@ -83,7 +87,11 @@ function AccountManager({ client }: { client: SupabaseClient }) {
     const group = String(form.get('group-id') ?? '');
     const kind = String(form.get('kind') ?? '') as AccountKind;
     const startingBalance = accountForm === 'create' ? normalizeUsdAmount(String(form.get('starting-balance') ?? '')) : null;
-    if (!name) return;
+    if (!name) {
+      setFormError('Enter an account name.');
+      event.currentTarget.querySelector<HTMLInputElement>('[name="account-name"]')?.focus();
+      return;
+    }
     if (accountForm === 'create' && startingBalance === null) {
       setFormError('Enter a balance with no more than two decimal places.');
       return;
@@ -92,7 +100,7 @@ function AccountManager({ client }: { client: SupabaseClient }) {
     setSaving(true); setFormError(''); setMessage('');
     const editing = accountForm && accountForm !== 'create' ? accountForm : null;
     const result = editing
-      ? await client.from('accounts').update(values).eq('id', editing.id)
+      ? await client.from('accounts').update(values).eq('id', editing.id).select('id').maybeSingle()
       : await client.from('accounts').insert({
           ...values,
           kind,
@@ -100,7 +108,7 @@ function AccountManager({ client }: { client: SupabaseClient }) {
           balance_observed_on: String(form.get('observed-on')),
         });
     setSaving(false);
-    if (result.error) { setFormError('Could not save this account. Check the details and try again.'); return; }
+    if (result.error || (editing && !result.data)) { setFormError('Could not save this account. Your entries are still here.'); return; }
     setMessage(editing ? 'Account updated.' : 'Account created with its starting balance.');
     setAccountForm(null);
     await load();
@@ -125,9 +133,10 @@ function AccountManager({ client }: { client: SupabaseClient }) {
       return;
     }
     setSaving(true); setFormError(''); setMessage('');
-    const result = await client.from('accounts').update({ current_balance: balance, balance_observed_on: observedOn }).eq('id', account.id);
+    const result = await client.from('accounts').update({ current_balance: balance, balance_observed_on: observedOn })
+      .eq('id', account.id).select('id').maybeSingle();
     setSaving(false);
-    if (result.error) { setFormError('Could not save this balance. Check the amount and date, then try again.'); return; }
+    if (result.error || !result.data) { setFormError('Could not save this balance. Your entries are still here.'); return; }
     setBalanceForm(null);
     setMessage('Balance saved. This month’s snapshot now shows the latest observation; earlier months are kept.');
     await load();
@@ -149,10 +158,11 @@ function AccountManager({ client }: { client: SupabaseClient }) {
   async function toggleArchive(account: Account) {
     if (saving) return;
     setSaving(true); setMessage(''); setFormError('');
-    const result = await client.from('accounts').update({ archived_at: account.archived_at ? null : new Date().toISOString() }).eq('id', account.id);
+    const result = await client.from('accounts').update({ archived_at: account.archived_at ? null : new Date().toISOString() })
+      .eq('id', account.id).select('id').maybeSingle();
     setSaving(false);
     setConfirmArchive(null);
-    if (result.error) { setFormError('Could not update this account. Try again.'); return; }
+    if (result.error || !result.data) { setFormError('Could not update this account. Try again.'); return; }
     setMessage(account.archived_at ? 'Account restored.' : 'Account archived. Its history is retained.');
     await load();
   }

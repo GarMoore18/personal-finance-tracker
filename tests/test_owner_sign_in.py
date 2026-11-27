@@ -173,6 +173,9 @@ def test_account_management(url, browser, viewport):
                     route.fulfill(status=201, headers=headers, body='')
                 else:
                     row_id = urlsplit(req.url).query.split('id=eq.', 1)[1].split('&', 1)[0]
+                    if payload.get('name') == 'Unavailable checking':
+                        route.fulfill(headers=headers, json=[])
+                        return
                     updated = next(row for row in rows if row['id'] == row_id)
                     if table == 'accounts' and payload.get('balance_observed_on', updated['balance_observed_on']) < updated['balance_observed_on']:
                         route.fulfill(status=409, headers=headers, json={'message': 'A balance observation cannot precede the current observation'})
@@ -185,7 +188,7 @@ def test_account_management(url, browser, viewport):
                                 snapshot.update(balance=updated['current_balance'], observed_on=updated['balance_observed_on'])
                             else:
                                 snapshots.append({'account_id': row_id, 'month': month, 'balance': updated['current_balance'], 'observed_on': updated['balance_observed_on']})
-                        route.fulfill(status=204, headers=headers, body='')
+                        route.fulfill(headers=headers, json=[{'id': row_id}])
         else:
             route.fulfill(status=204, headers=headers, body='')
 
@@ -197,6 +200,11 @@ def test_account_management(url, browser, viewport):
     expect(page.get_by_role('heading', name='Accounts', exact=True)).to_be_visible()
 
     page.get_by_role('button', name='Add group').click()
+    page.get_by_label('Group name').fill('   ')
+    page.get_by_role('button', name='Create group').click()
+    expect(page.get_by_role('alert')).to_contain_text('Enter a group name')
+    expect(page.get_by_label('Group name')).to_be_focused()
+    assert not writes
     page.get_by_label('Group name').fill('Banking')
     page.get_by_role('button', name='Create group').click()
     group = groups[0]
@@ -262,6 +270,11 @@ def test_account_management(url, browser, viewport):
     page.get_by_role('button', name='Save group').click()
     expect(page.get_by_role('heading', name='Daily banking')).to_be_visible()
     page.get_by_role('button', name='Edit Everyday checking').click()
+    page.get_by_label('Account name').fill('Unavailable checking')
+    page.get_by_role('button', name='Save changes').click()
+    expect(page.get_by_role('alert')).to_contain_text('Your entries are still here')
+    expect(page.get_by_label('Account name')).to_have_value('Unavailable checking')
+    assert account['name'] == 'Everyday checking'
     page.get_by_label('Account name').fill('Joint checking')
     page.locator('select[name=group-id]').select_option(label='Ungrouped')
     page.get_by_role('button', name='Save changes').click()
@@ -402,9 +415,18 @@ def test_manual_expense(url, browser, viewport):
     page.get_by_label('Amount (USD)').fill('12.345')
     save.click()
     expect(page.get_by_role('alert')).to_contain_text('up to two decimal places')
+    expect(page.get_by_label('Amount (USD)')).to_be_focused()
+    expect(page.get_by_label('Amount (USD)')).to_have_accessible_description(
+        'Enter a positive amount with up to two decimal places.')
     assert not attempts
 
     page.get_by_label('Amount (USD)').fill('12.3')
+    page.get_by_label('Description').fill('   ')
+    save.click()
+    expect(page.get_by_label('Description')).to_be_focused()
+    expect(page.get_by_label('Description')).to_have_accessible_description('Enter an expense description.')
+    assert not attempts
+    page.get_by_label('Description').fill('  Market supplies  ')
     save.click()
     expect(page.get_by_role('alert')).to_contain_text('Your entries are still here')
     expect(page.get_by_label('Amount (USD)')).to_have_value('12.3')
