@@ -8,6 +8,8 @@ Ledger is a phone-first personal finance app. The active React, TypeScript, and 
 - Never commit secrets, environment files, real financial data, service-role keys, or database passwords. Only the owner directs changes to `.github/`.
 
 ## Workflow
+
+Codex handles issues in owner sessions and uses GitHub Actions for deterministic verification.
 1. Read the issue and direct dependencies only. For design ambiguity, comment with a short plan and options.
 2. Keep one issue per branch/PR/worktree. A session may handle up to three independent issues. Reference the issue in the PR.
 3. For app changes run `npm ci --prefix app` and `npm run verify --prefix app` with the documented Node and Chromium prerequisites. Add focused coverage for behavior changes; update related docs.
@@ -16,4 +18,4 @@ Ledger is a phone-first personal finance app. The active React, TypeScript, and 
 ## Efficiency
 - Use the cheapest capable model; keep routine work small and delegate only independent tasks or low-cost reviews.
 - Read narrow file ranges, avoid rescanning the repo or dumping large logs, and keep PR descriptions concise.
-- Maintain ignored `.baton/session-state.md` as a compact handoff with status, blockers, next steps, and rough usage estimate.
+- Maintain ignored `.agent-session.md` as a compact handoff with status, blockers, next steps, and rough usage estimate.
