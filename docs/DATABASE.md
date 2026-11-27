@@ -14,7 +14,15 @@ psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 
 
 The SQL check creates two synthetic owners, verifies permissions and financial invariants, and rolls back its fixtures. Run it against a disposable local database. It uses the standard local CLI connection string. The app's client setup is tracked in #6 and #7.
 
-Create an owner for manual testing through local Studio or Supabase's Auth Admin API. Public and anonymous sign-ups are disabled in local config. Create another session against the same local stack and confirm data is present after re-authentication once the authenticated UI is available.
+Public and anonymous sign-ups are disabled in local config. Use the opt-in persistence check on a disposable stack with Playwright and Chromium installed. Set `LEDGER_SUPABASE_URL` to the loopback API URL on `127.0.0.1` and `LEDGER_SUPABASE_PUBLISHABLE_KEY` to its publishable key. Set `LEDGER_TEST_SUPABASE_SERVICE_ROLE_KEY` from the same stack for the Python test process only. Keep the service-role key out of app build inputs and committed files.
+
+```sh
+npm ci --prefix app
+npm run build --prefix app
+python3 tests/test_supabase_persistence.py
+```
+
+The test creates two synthetic accounts through Auth Admin, saves an expense in a phone-sized browser context, and reads it after signing in from a fresh desktop context. A different user sees an empty Activity page, and anonymous Data API requests are denied. The fixtures stay in the disposable stack until it is reset.
 
 ## Hosted setup
 
