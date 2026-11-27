@@ -318,6 +318,7 @@ def test_manual_expense(url, browser, viewport):
     import_attempts, imported = [], {}
     spending_requests, balance_requests = [], []
     export_offsets = []
+    duplicate_offsets = []
     category_requests = 0
     overview_ready = False
     bulk_month = False
@@ -357,6 +358,19 @@ def test_manual_expense(url, browser, viewport):
                 route.fulfill(headers=headers, json=categories[category_id])
         elif path == '/rest/v1/transactions' and request.method == 'GET':
             query = parse_qs(urlsplit(request.url).query)
+            if query.get('select') == ['occurred_on,amount,description']:
+                assert query['occurred_on'] == ['in.(2024-02-28,2024-02-29)']
+                assert query['order'] == ['occurred_on.desc,id.asc']
+                offset, limit = int(query['offset'][0]), int(query['limit'][0])
+                duplicate_offsets.append(offset)
+                if len(duplicate_offsets) == 1:
+                    route.fulfill(status=400, headers=headers, json={'message': 'Synthetic lookup failure'})
+                    return
+                rows = [{'occurred_on': '2024-02-29', 'amount': 10.05, 'description': f'Other expense {index}'}
+                        for index in range(200)]
+                rows.append({'occurred_on': '2024-02-29', 'amount': 10.05, 'description': ' BREAD,  FRESH '})
+                route.fulfill(headers=headers, json=rows[offset:offset + limit])
+                return
             if query.get('select') == ['occurred_on,amount,description,notes,categories(name)']:
                 offset = int(query.get('offset', [0])[0])
                 limit = int(query.get('limit', [200])[0])
@@ -730,10 +744,15 @@ def test_manual_expense(url, browser, viewport):
         for label, index in [('Date', '0'), ('Amount (USD)', '1'), ('Category', '3')]:
             csv.get_by_role('combobox', name=label, exact=True).select_option(index)
 
-    upload(header + valid + '2025-02-29,2.00,Invalid date,Groceries,\r\n2024-02-29,2.00')
+    upload(header + valid + '2025-02-29,2.00,Invalid date,Groceries,\r\n2024-02-29,2.00\r\n'
+           '2024-02-28,0.75,train,Food at home,Different category')
     expect(csv.get_by_text('Use a valid date in YYYY-MM-DD format.')).to_be_visible()
     expect(csv.get_by_text('The number of columns differs from the header.')).to_be_visible()
-    expect(csv.get_by_role('button', name='Import 3 expenses')).to_be_disabled()
+    expect(csv.get_by_role('button', name='Import 4 expenses')).to_be_disabled()
+    expect(csv.get_by_role('alert')).to_contain_text('Could not check for possible duplicates.')
+    csv.get_by_role('button', name='Retry duplicate check').click()
+    expect(csv.get_by_text('Possible duplicate. Same date, amount, and description as a saved expense.')).to_be_visible()
+    assert duplicate_offsets == [0, 0, 200]
     csv.get_by_role('checkbox', name='Show only rows with problems').check()
     expect(csv.get_by_text('Bread, fresh')).to_have_count(0)
     assert not import_attempts
@@ -755,12 +774,20 @@ def test_manual_expense(url, browser, viewport):
     expect(edit_row).to_be_focused()
     remove_row = csv.get_by_role('button', name='Remove row 4')
     remove_row.click()
-    expect(csv.get_by_role('button', name='Import 2 expenses')).to_be_enabled()
-    csv.get_by_role('button', name='Restore removed rows').click()
     expect(csv.get_by_role('button', name='Import 3 expenses')).to_be_disabled()
+    csv.get_by_role('button', name='Restore removed rows').click()
+    expect(csv.get_by_role('button', name='Import 4 expenses')).to_be_disabled()
     remove_row.click()
     expect(csv.get_by_text('Bread, fresh')).to_be_visible()
     expect(csv.get_by_text('Train', exact=True)).to_be_visible()
+    csv.get_by_role('checkbox', name='Show only possible duplicates').check()
+    expect(csv.get_by_text('Train', exact=True)).to_have_count(0)
+    expect(csv.get_by_text('Possible duplicate. Same date, amount, and description as CSV row 3.')).to_be_visible()
+    csv.get_by_role('group', name='Possible duplicate on row 2').get_by_role('button', name='Keep').click()
+    skip = csv.get_by_role('group', name='Possible duplicate on row 5').get_by_role('button', name='Skip')
+    skip.click()
+    expect(skip).to_have_attribute('aria-pressed', 'true')
+    assert duplicate_offsets == [0, 0, 200]
     assert_layout(page, csv.get_by_role('button', name='Import 2 expenses'))
     assert not import_attempts
     csv.get_by_role('button', name='Import 2 expenses').click()
@@ -770,11 +797,12 @@ def test_manual_expense(url, browser, viewport):
     csv.get_by_role('button', name='Retry import').click()
     expect(csv.get_by_role('status').filter(has_text='Imported 2 expenses.')).to_be_visible()
     assert len(imported) == 2 and import_attempts[0] == import_attempts[1]
+    assert duplicate_offsets == [0, 0, 200]
     first, second = import_attempts[0]
     assert first == {'id': first['id'], 'occurred_on': '2024-02-29', 'amount': '10.05',
                      'description': 'Bread, fresh', 'category_id': category_id, 'notes': 'First line\nSecond line'}
     assert second['category_id'] == 'custom' and second['amount'] == '0.75' and second['notes'] is None
-    print('PASS CSV mapping, row correction and removal, explicit import, and safe retry')
+    print('PASS CSV mapping, row correction and removal, duplicate check and choices, explicit import, and safe retry')
 
     navigation.get_by_role('link', name='More').click()
     page.get_by_role('link', name='Export data').click()

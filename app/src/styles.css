@@ -371,6 +371,7 @@ button:disabled {
 .csv-notes { white-space: pre-wrap; }
 .csv-review > .form-actions { margin-bottom: var(--space-2); }
 .csv-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); grid-column: 1 / -1; }
+.csv-row-actions button[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); }
 .csv-row-editor {
   display: grid;
   grid-column: 1 / -1;
