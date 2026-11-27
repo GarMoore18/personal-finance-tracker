@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { defaultMapping, fields, mappingProblem, readCsv, reviewCsv } from './csvImport';
-import type { Category, CsvSource, Mapping } from './csvImport';
+import type { Category, CsvSource, Mapping, ReviewValues } from './csvImport';
+import { ImportRowEditor } from './ImportRowEditor';
 
 const pageSize = 10;
 
@@ -18,7 +19,11 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
   const [savedCount, setSavedCount] = useState(0);
   const [page, setPage] = useState(0);
   const [showProblems, setShowProblems] = useState(false);
+  const [corrections, setCorrections] = useState(() => new Map<string, ReviewValues>());
+  const [removed, setRemoved] = useState(() => new Set<string>());
+  const [editing, setEditing] = useState<string>();
   const pending = useRef(false);
+  const editTrigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!source) return;
@@ -39,6 +44,9 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
     setSavedCount(0);
     setPage(0);
     setShowProblems(false);
+    setCorrections(new Map());
+    setRemoved(new Set());
+    setEditing(undefined);
     setError('');
     try {
       const parsed = await readCsv(file);
@@ -57,12 +65,20 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
 
   const columnError = mapping ? mappingProblem(mapping) : '';
   const review = useMemo(() => source && mapping && !columnError && categories
-    ? reviewCsv(source, mapping, categories) : [], [source, mapping, columnError, categories]);
+    ? reviewCsv(source, mapping, categories, corrections).filter(({ id }) => !removed.has(id))
+    : [], [source, mapping, columnError, categories, corrections, removed]);
   const problems = review.filter(({ problem }) => problem);
-  const visibleRows = showProblems ? problems : review;
+  const visibleRows = showProblems && problems.length ? problems : review;
+  const visiblePage = Math.min(page, Math.max(0, Math.ceil(visibleRows.length / pageSize) - 1));
+  const editingLocked = saving || unconfirmed || editing !== undefined;
+
+  function closeEditor() {
+    setEditing(undefined);
+    requestAnimationFrame(() => editTrigger.current?.focus());
+  }
 
   async function save() {
-    if (!review.length || problems.length || pending.current) return;
+    if (!review.length || problems.length || editing || pending.current) return;
     pending.current = true;
     setSaving(true);
     setError('');
@@ -90,7 +106,7 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
   return (
     <section className="panel csv-import" aria-label="CSV expense import">
       <label className="csv-file">CSV file
-        <input type="file" accept=".csv,text/csv" disabled={reading || saving || unconfirmed}
+        <input type="file" accept=".csv,text/csv" disabled={reading || editingLocked}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = '';
@@ -103,7 +119,7 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
       {savedCount > 0 && <p role="status">Imported {savedCount} {savedCount === 1 ? 'expense' : 'expenses'}. <a href="#/activity">View Activity</a></p>}
       {source && mapping && <>
         <p className="csv-filename">{source.name}</p>
-        <fieldset className="csv-mapping group-form" disabled={saving || unconfirmed}>
+        <fieldset className="csv-mapping group-form" disabled={editingLocked}>
           <legend>Match columns</legend>
           {fields.map(({ id, label }) => (
             <label key={id}>{label}
@@ -128,35 +144,59 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
             setLoadAttempt((previous) => previous + 1);
           }}>Retry</button>
         </div>}
-        {review.length > 0 && <div className="csv-review">
+        {!columnError && categories && <div className="csv-review">
           <h2>Review expenses</h2>
           <p role="status">{review.length} CSV {review.length === 1 ? 'row' : 'rows'}. {problems.length > 0
-            ? `${problems.length} need correction. Update the mapping or correct the file and choose it again.`
-            : 'Check the rows before importing.'}</p>
+            ? `${problems.length} need correction. Edit or remove those rows before importing.`
+            : review.length > 0 ? 'Check the rows before importing.' : 'No expenses selected.'}</p>
+          {removed.size > 0 && <div className="csv-row-actions">
+            <span role="status">{removed.size} {removed.size === 1 ? 'row removed' : 'rows removed'}</span>
+            <button type="button" className="text-button" disabled={editingLocked} onClick={() => {
+              setRemoved(new Set());
+              setPage(0);
+            }}>Restore removed rows</button>
+          </div>}
           {problems.length > 0 && <label className="csv-problems">
-            <input type="checkbox" checked={showProblems} onChange={(event) => {
+            <input type="checkbox" checked={showProblems} disabled={!!editing} onChange={(event) => {
               setShowProblems(event.currentTarget.checked);
               setPage(0);
             }} /> Show only rows with problems
           </label>}
           <ol className="csv-rows" aria-label="CSV rows">
-            {visibleRows.slice(page * pageSize, (page + 1) * pageSize).map((row) => (
-              <li key={row.number}>
+            {visibleRows.slice(visiblePage * pageSize, (visiblePage + 1) * pageSize).map((row) => (
+              <li key={row.id}>
                 <strong>{row.description || 'Missing description'}</strong>
                 <span>{row.amount ? `USD ${row.amount}` : 'Missing amount'}</span>
                 <small>Row {row.number} · {row.date || 'Missing date'} · {row.category || 'Missing category'}</small>
-                {row.expense?.notes && <small className="csv-notes">{row.expense.notes}</small>}
+                {row.notes && <small className="csv-notes">{row.notes}</small>}
                 {row.problem && <p className="notice-error">{row.problem}</p>}
+                <div className="csv-row-actions">
+                  <button type="button" className="text-button" aria-label={`Edit row ${row.number}`}
+                    disabled={editingLocked} onClick={(event) => {
+                      editTrigger.current = event.currentTarget;
+                      setEditing(row.id);
+                    }}>Edit</button>
+                  <button type="button" className="text-button" aria-label={`Remove row ${row.number}`}
+                    disabled={editingLocked} onClick={() => setRemoved((previous) => new Set(previous).add(row.id))}>Remove</button>
+                </div>
+                {editing === row.id && <ImportRowEditor row={row} categories={categories} onCancel={closeEditor}
+                  onApply={(values) => {
+                    setCorrections((previous) => new Map(previous).set(row.id, values));
+                    setShowProblems(false);
+                    setPage(Math.floor(review.indexOf(row) / pageSize));
+                    setError('');
+                    closeEditor();
+                  }} />}
               </li>
             ))}
           </ol>
           {visibleRows.length > pageSize && <div className="form-actions">
-            <button className="button-secondary" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous rows</button>
-            <button className="button-secondary" disabled={(page + 1) * pageSize >= visibleRows.length}
-              onClick={() => setPage(page + 1)}>Next rows</button>
-            <span>Rows {page * pageSize + 1}–{Math.min((page + 1) * pageSize, visibleRows.length)} of {visibleRows.length}</span>
+            <button className="button-secondary" disabled={!!editing || visiblePage === 0} onClick={() => setPage(visiblePage - 1)}>Previous rows</button>
+            <button className="button-secondary" disabled={!!editing || (visiblePage + 1) * pageSize >= visibleRows.length}
+              onClick={() => setPage(visiblePage + 1)}>Next rows</button>
+            <span>Rows {visiblePage * pageSize + 1}–{Math.min((visiblePage + 1) * pageSize, visibleRows.length)} of {visibleRows.length}</span>
           </div>}
-          <button type="button" disabled={saving || problems.length > 0} onClick={() => void save()}>
+          <button type="button" disabled={saving || !!editing || problems.length > 0 || !review.length} onClick={() => void save()}>
             {saving ? 'Importing…' : unconfirmed ? 'Retry import' : `Import ${review.length} ${review.length === 1 ? 'expense' : 'expenses'}`}
           </button>
         </div>}

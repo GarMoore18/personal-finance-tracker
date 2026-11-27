@@ -370,6 +370,29 @@ button:disabled {
 .csv-rows li > small { color: var(--muted); }
 .csv-notes { white-space: pre-wrap; }
 .csv-review > .form-actions { margin-bottom: var(--space-2); }
+.csv-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); grid-column: 1 / -1; }
+.csv-row-editor {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--space-1);
+  background: var(--background);
+}
+.csv-row-editor label { display: grid; gap: 0.35rem; font-weight: 650; }
+.csv-row-editor input, .csv-row-editor select, .csv-row-editor textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 1px solid var(--muted);
+  border-radius: var(--space-1);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
 .export-panel { max-width: 32rem; }
 .export-form { margin: 0; padding: 0; border: 0; }
 .category-settings { max-width: 38rem; }
