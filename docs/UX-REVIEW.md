@@ -15,4 +15,6 @@ Apply this checklist to each major screen or workflow before marking it done. Re
 
 ## Release pass
 
+The Chromium regression suite runs sign-in, account management, expense entry and editing, Activity search and filters, dashboard widgets, and category settings at 320 × 720, 390 × 844, 430 × 932, and 1280 × 900. It checks for horizontal overflow, confirms selected primary controls and navigation targets are at least 44 × 44 CSS px, and tests keyboard access to the skip link. Account fixtures include a long unbroken name and the largest supported balance.
+
 Run dashboard navigation, quick-add expense, search and edit/delete, category management, and accounts/net worth/history on iPhone Safari and a desktop browser with synthetic data. Include a keyboard-only pass and a short VoiceOver or equivalent screen-reader pass. Test both themes. Use [WCAG 2.2](https://www.w3.org/TR/WCAG22/) for exact criteria.
