@@ -4,12 +4,17 @@ import { formatUsd, toCents } from './money';
 import { currentMonth, dayLabel, groupDays, loadMonth, transactionQuery } from './transactions';
 import type { Day, Transaction } from './transactions';
 import { ExpenseForm } from './ExpenseForm';
+import type { DashboardPreferences } from './dashboardPreferences';
 
 type Account = { id: string; name: string; current_balance: string | number };
 type Overview = { count: number | null; worthFailed: boolean; spending: bigint | null; netWorth: bigint | null; accounts: Account[] | null; recent: Day[] | null };
 const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient; onCurrentActivity: () => void }) {
+export function HomePage({ client, onCurrentActivity, widgets }: {
+  client: SupabaseClient;
+  onCurrentActivity: () => void;
+  widgets: DashboardPreferences;
+}) {
   const month = currentMonth();
   const [overview, setOverview] = useState<Overview>();
   const [attempt, setAttempt] = useState(0);
@@ -21,26 +26,32 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
     const signal = request.signal;
     void (async () => {
       const [spending, worth, accounts, recent] = await Promise.all([
-        loadMonth(client, month, signal),
-        client.from('current_net_worth').select('net_worth').abortSignal(signal).maybeSingle(),
-        client.from('accounts').select('id,name,current_balance').is('archived_at', null)
-          .order('name').order('id').limit(4).abortSignal(signal),
-        transactionQuery(client).limit(5).abortSignal(signal).overrideTypes<Transaction[], { merge: false }>(),
+        widgets.spending ? loadMonth(client, month, signal) : null,
+        widgets.worth ? client.from('current_net_worth').select('net_worth').abortSignal(signal).maybeSingle() : null,
+        widgets.worth ? client.from('accounts').select('id,name,current_balance').is('archived_at', null)
+          .order('name').order('id').limit(4).abortSignal(signal) : null,
+        widgets.recent ? transactionQuery(client).limit(5).abortSignal(signal)
+          .overrideTypes<Transaction[], { merge: false }>() : null,
       ]);
       if (signal.aborted) return;
       setOverview({
         count: spending?.reduce((total, day) => total + day.transactions.length, 0) ?? null,
         spending: spending?.reduce((sum, day) => sum + day.total, 0n) ?? null,
-        netWorth: worth.data ? toCents(worth.data.net_worth) : null,
-        accounts: accounts.error ? null : accounts.data,
-        worthFailed: !!worth.error,
-        recent: recent.error ? null : groupDays(recent.data),
+        netWorth: worth?.data ? toCents(worth.data.net_worth) : null,
+        accounts: accounts?.data ?? null,
+        worthFailed: !!worth?.error,
+        recent: recent?.data ? groupDays(recent.data) : null,
       });
     })();
     return () => request.abort();
-  }, [client, month, attempt]);
+  }, [client, month, attempt, widgets]);
 
-  const missing = overview && (overview.worthFailed || overview.spending === null || overview.accounts === null || overview.recent === null);
+  const hasWidgets = widgets.spending || widgets.recent || widgets.worth;
+  const missing = overview && (
+    (widgets.worth && (overview.worthFailed || overview.accounts === null)) ||
+    (widgets.spending && overview.spending === null) ||
+    (widgets.recent && overview.recent === null)
+  );
   return (
     <div className="overview">
       <div className="overview-heading">
@@ -67,7 +78,7 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
           setAttempt((previous) => previous + 1);
         }} />}
       </div>
-      {!overview && <p role="status" className="overview-notice">Loading your overview…</p>}
+      {hasWidgets && !overview && <p role="status" className="overview-notice">Loading your overview…</p>}
       {missing && <div className="overview-error" role="alert">
         <span>Some balances or expenses couldn’t be loaded.</span>
         <button className="button-secondary" type="button" onClick={() => {
@@ -75,15 +86,16 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
           setAttempt((previous) => previous + 1);
         }}>Retry</button>
       </div>}
-      <div className="overview-grid">
-        <section className="panel overview-spending" aria-labelledby="spending-title">
+      {!hasWidgets && <p className="overview-notice">Choose widgets in <a href="#/more">Settings</a> to show them here.</p>}
+      {hasWidgets && <div className="overview-grid">
+        {widgets.spending && <section className="panel overview-spending" aria-labelledby="spending-title">
           <h2 id="spending-title">Spending this month</h2>
           <p className="overview-amount">{overview?.spending != null ? formatUsd(overview.spending) : '—'}</p>
           {overview?.count != null && (
             <p className="overview-count">{overview.count} {overview.count === 1 ? 'expense' : 'expenses'}</p>
           )}
-        </section>
-        <section className="overview-activity" aria-labelledby="recent-title">
+        </section>}
+        {widgets.recent && <section className="overview-activity" aria-labelledby="recent-title">
           <div className="overview-section-head">
             <h2 id="recent-title">Recent expenses</h2>
             <a className="action" href="#/activity" onClick={onCurrentActivity}>View all</a>
@@ -108,8 +120,8 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
               </div>
             ))}
           </div>
-        </section>
-        <section className="panel overview-accounts" aria-labelledby="worth-title">
+        </section>}
+        {widgets.worth && <section className="panel overview-accounts" aria-labelledby="worth-title">
           <div className="overview-section-head">
             <h2 id="worth-title">Net worth</h2>
             <a className="action" href="#/accounts">View accounts</a>
@@ -123,8 +135,8 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
               ))}
             </ul>
           )}
-        </section>
-      </div>
+        </section>}
+      </div>}
     </div>
   );
 }

@@ -524,6 +524,26 @@ def test_manual_expense(url, browser):
     page.get_by_role('button', name='Close quick add').click()
     expect(quick_add).to_be_hidden()
     print('PASS dashboard quick add, repeated saves, updated totals, and narrow layout')
+
+    navigation.get_by_role('link', name='More').click()
+    widgets = page.get_by_role('group', name='Dashboard widgets')
+    for label in ('Spending this month', 'Recent expenses', 'Net worth'):
+        expect(widgets.get_by_role('checkbox', name=label)).to_be_checked()
+        widgets.get_by_role('checkbox', name=label).uncheck()
+    navigation.get_by_role('link', name='Home').click()
+    for label in ('Spending this month', 'Recent expenses', 'Net worth'):
+        expect(page.get_by_role('region', name=label)).to_have_count(0)
+    expect(page.get_by_role('button', name='Quick add expense')).to_be_visible()
+    page.reload()
+    page.get_by_role('link', name='Settings', exact=True).click()
+    for label in ('Spending this month', 'Recent expenses', 'Net worth'):
+        expect(widgets.get_by_role('checkbox', name=label)).not_to_be_checked()
+    widgets.get_by_role('checkbox', name='Recent expenses').check()
+    navigation.get_by_role('link', name='Home').click()
+    expect(page.get_by_role('region', name='Recent expenses')).to_contain_text('Fresh fruit')
+    expect(page.get_by_role('region', name='Net worth')).to_have_count(0)
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    print('PASS dashboard widget defaults, hiding, persistence, and restoring a widget')
     page.close()
 
 
