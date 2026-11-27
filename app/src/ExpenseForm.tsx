@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { localToday, normalizeUsdAmount } from './financialInputs';
@@ -18,6 +18,8 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, qui
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [error, setError] = useState('');
+  const [invalidField, setInvalidField] = useState('');
+  const errorId = useId();
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -51,22 +53,36 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, qui
     const fields = new FormData(form);
     const enteredAmount = String(fields.get('amount')).trim();
     const amount = normalizeUsdAmount(enteredAmount.startsWith('.') ? '0' + enteredAmount : enteredAmount);
-    const description = String(fields.get('description')).trim();
-    const category = String(fields.get('category'));
-    const date = String(fields.get('date'));
-    const notes = String(fields.get('notes')).trim();
+    const description = String(fields.get('description') ?? '').trim();
+    const category = String(fields.get('category') ?? '');
+    const date = String(fields.get('date') ?? '');
+    const notes = String(fields.get('notes') ?? '').trim();
+    function reject(field: string, message: string) {
+      setInvalidField(field);
+      setError(message);
+      (form.elements.namedItem(field) as HTMLElement | null)?.focus();
+    }
     if (!amount || amount.startsWith('-') || amount === '0.00') {
-      setError('Enter a positive amount with up to two decimal places.');
+      reject('amount', 'Enter a positive amount with up to two decimal places.');
       return;
     }
-    if (!description || !date || !categories?.some(({ id }) => id === category)) {
-      setError('Enter a description and date, and choose a category.');
+    if (!description) {
+      reject('description', 'Enter an expense description.');
+      return;
+    }
+    if (!categories?.some(({ id }) => id === category)) {
+      reject('category', 'Choose an expense category.');
+      return;
+    }
+    if (!date) {
+      reject('date', 'Choose the expense date.');
       return;
     }
 
     submitting.current = true;
     setSaving(true);
     setError('');
+    setInvalidField('');
     try {
       const transaction = {
         amount, description, category_id: category, occurred_on: date, notes: notes || null,
@@ -79,15 +95,18 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, qui
         setError('Could not save the expense. Your entries are still here.');
         return;
       }
-      if (quickAdd) {
-        form.reset();
-        focusAmount.current = true;
-      }
-      onSaved();
+    } catch {
+      setError('Could not save the expense. Your entries are still here.');
+      return;
     } finally {
       submitting.current = false;
       setSaving(false);
     }
+    if (quickAdd) {
+      form.reset();
+      focusAmount.current = true;
+    }
+    onSaved();
   }
 
   async function deleteExpense() {
@@ -102,11 +121,18 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, qui
         setError('Could not delete the expense. Try again.');
         return;
       }
-      onDeleted?.();
+    } catch {
+      setError('Could not delete the expense. Try again.');
+      return;
     } finally {
       submitting.current = false;
       setDeleting(false);
     }
+    onDeleted?.();
+  }
+
+  function errorAttributes(field: string) {
+    return invalidField === field ? { 'aria-invalid': true, 'aria-describedby': errorId } : {};
   }
 
   return (
@@ -120,18 +146,18 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, qui
           }}>Retry</button>
         </div>
       )}
-      {categories?.length === 0 && <p role="status">No expense categories are available for this account.</p>}
+      {categories?.length === 0 && <p role="status">No expense categories are available. <a href="#/categories">Manage categories</a></p>}
       <form onSubmit={save}>
         <fieldset className="expense-form" disabled={saving || deleting || confirmDelete}>
-          <label>Amount (USD)<input ref={amountInput} className="expense-amount" name="amount" inputMode="decimal" placeholder="0.00" defaultValue={expense?.amount} required /></label>
-          <label>Description<input name="description" placeholder="What was it for?" defaultValue={expense?.description} required /></label>
+          <label>Amount (USD)<input ref={amountInput} className="expense-amount" name="amount" inputMode="decimal" placeholder="0.00" defaultValue={expense?.amount} required {...errorAttributes('amount')} /></label>
+          <label>Description<input name="description" placeholder="What was it for?" defaultValue={expense?.description} required {...errorAttributes('description')} /></label>
           <label>Category
-            <select key={categories === null ? 'loading' : 'loaded'} name="category" defaultValue={expense?.category_id ?? ''} disabled={!categories?.length} required>
+            <select key={categories === null ? 'loading' : 'loaded'} name="category" defaultValue={expense?.category_id ?? ''} disabled={!categories?.length} required {...errorAttributes('category')}>
               <option value="" disabled>{categories || loadFailed ? 'Choose a category' : 'Loading categories…'}</option>
               {categories?.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
             </select>
           </label>
-          <label>Date<input name="date" type="date" defaultValue={expense?.occurred_on ?? localToday()} required /></label>
+          <label>Date<input name="date" type="date" defaultValue={expense?.occurred_on ?? localToday()} required {...errorAttributes('date')} /></label>
           <label>Notes (optional)<textarea name="notes" rows={2} defaultValue={expense?.notes ?? ''} /></label>
           <button className="expense-save" disabled={!categories?.length || saving}>
             {saving ? 'Saving…' : expense ? 'Save changes' : 'Save expense'}
@@ -140,6 +166,7 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, qui
             <button className="button-secondary" type="button" onClick={onCancel}>Cancel</button>
             <button className="button-secondary expense-delete" type="button" onClick={() => {
               setError('');
+              setInvalidField('');
               setConfirmDelete(true);
             }}>Delete expense</button>
           </div>}
@@ -157,7 +184,7 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, qui
           </button>
         </div>
       </div>}
-      {error && <p className="form-help" role="alert">{error}</p>}
+      {error && <p id={errorId} className="notice-error" role="alert">{error}</p>}
     </section>
   );
 }
