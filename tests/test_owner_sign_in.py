@@ -949,6 +949,7 @@ def test_manual_expense(url, browser, viewport):
     previous_month, report_start, next_month, baseline = (shift_month(offset) for offset in (-1, -11, 1, -13))
     navigation.get_by_role('link', name='More').click()
     page.get_by_role('link', name='Reports', exact=True).click()
+    expect(navigation.get_by_role('link', name='More')).to_have_attribute('aria-current', 'location')
     reports = page.get_by_role('region', name='Financial reports')
     expect(reports.get_by_role('alert')).to_contain_text('Could not load the report.')
     reports.get_by_role('button', name='Retry').click()
@@ -964,6 +965,12 @@ def test_manual_expense(url, browser, viewport):
     trend = reports.get_by_role('list', name='Monthly spending in USD')
     expect(trend.get_by_role('listitem')).to_have_count(12)
     expect(trend.get_by_role('listitem').last).to_contain_text('$13.25')
+    def assert_aligned_bars(chart):
+        tracks = chart.locator('.report-track').evaluate_all(
+            '(tracks) => tracks.map(track => [track.getBoundingClientRect().x, track.getBoundingClientRect().width])')
+        assert len(tracks) == 12 and all(track == tracks[0] for track in tracks)
+
+    assert_aligned_bars(trend)
     def download_report(name):
         with page.expect_download() as result:
             reports.get_by_role('button', name=f'Download CSV for {name}', exact=True).click()
@@ -998,6 +1005,7 @@ def test_manual_expense(url, browser, viewport):
     expect(worth.get_by_role('listitem').first).to_contain_text('$100.10')
     expect(worth.get_by_role('listitem').nth(10)).to_contain_text('-$25.00')
     expect(worth.get_by_role('listitem').last).to_contain_text('-$40.00')
+    assert_aligned_bars(worth)
     account_picker = history.get_by_role('combobox', name='Account', exact=True)
     account_picker.select_option('old')
     expect(history_rows.nth(10)).to_contain_text('$25.00')
