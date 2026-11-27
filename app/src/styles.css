@@ -714,3 +714,15 @@ button:disabled {
 }
 .report-download { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .report-download span { color: var(--muted); }
+
+.receipt-review { display: grid; align-items: start; gap: var(--space-3); }
+.receipt-image { display: grid; justify-items: start; gap: var(--space-2); min-width: 0; }
+.receipt-image > label { width: 100%; }
+.receipt-image img { display: block; max-width: 100%; max-height: 58vh; border-radius: var(--space-1); object-fit: contain; }
+.receipt-expense { display: grid; gap: var(--space-2); min-width: 0; }
+.receipt-expense h2 { margin: 0; }
+.receipt-list { margin: 0; padding: 0; list-style: none; }
+.receipt-delete p { margin: 0 0 var(--space-1); }
+@media (min-width: 60rem) {
+  .receipt-review { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

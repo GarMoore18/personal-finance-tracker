@@ -25,6 +25,8 @@ For Excel, use an unencrypted `.xlsx` workbook up to 5 MB. Review and confirm on
 
 Ledger flags possible duplicates with the same date, amount, and description, ignoring letter case and extra whitespace. It compares each row with earlier rows in the review and expenses already saved for those dates. Choose **Keep** or **Skip** for each flagged row before importing.
 
+Under **More → Receipt review**, open a JPEG, PNG, or WebP up to 8 MB and use **Start expense** to enter its details by hand. The image stays in the browser until you choose **Save private copy**. Saved images can be reopened or deleted from the same page, independently of expense records. The `private_receipt_storage` migration enables private copies on a Supabase environment. The manual flow makes no OCR or AI calls.
+
 Under **More → Export data**, download all expenses or account balances as CSV or Excel. Accounts include the balance observation date, group, and archive status. Downloaded values use USD, and dates use ISO format (`YYYY-MM-DD`). CSV adds an apostrophe to formula-like text to prevent spreadsheet execution. Excel preserves that text in string cells.
 
 Under **More → Reports**, compare USD spending by category and monthly totals over the last 12 months. The Balances view shows each account’s recorded monthly observations and net worth across accounts. Net worth carries each account’s last recorded balance forward, includes accounts from their first observation, and excludes them from their archive month onward. Archived account observations are still available in the account selector.
