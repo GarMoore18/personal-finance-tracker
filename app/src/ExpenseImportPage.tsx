@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { defaultMapping, fields, mappingProblem, readCsv, reviewCsv } from './csvImport';
-import type { Category, CsvSource, Mapping, ReviewValues } from './csvImport';
+import { defaultMapping, fields, mappingProblem, readCsv, reviewExpenses } from './expenseImport';
+import type { Category, ImportSource, Mapping, ReviewValues } from './expenseImport';
 import { ImportRowEditor } from './ImportRowEditor';
 import { findDuplicates, loadSavedMatches } from './importDuplicates';
+import { readExcel } from './excelImport';
+import type { Worksheet } from './excelImport';
 
 const pageSize = 10;
 type DuplicateChoice = { key: string; action: 'keep' | 'skip' };
 type DuplicateLookup = { key: string; matches: Set<string> | null };
 
-export function CsvImportPage({ client }: { client: SupabaseClient }) {
-  const [source, setSource] = useState<CsvSource>();
+export function ExpenseImportPage({ client }: { client: SupabaseClient }) {
+  const [source, setSource] = useState<ImportSource>();
+  const [upload, setUpload] = useState<{ name: string; worksheets?: Worksheet[] }>();
+  const [worksheet, setWorksheet] = useState(-1);
+  const [completedWorksheets, setCompletedWorksheets] = useState(() => new Set<number>());
   const [mapping, setMapping] = useState<Mapping>();
   const [categories, setCategories] = useState<Category[]>();
   const [categoryError, setCategoryError] = useState(false);
@@ -33,7 +38,7 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
   const editTrigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!source) return;
+    if (!upload) return;
     const request = new AbortController();
     void client.from('categories').select('id,name').abortSignal(request.signal).then(({ data, error }) => {
       if (request.signal.aborted) return;
@@ -41,14 +46,11 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
       else setCategories(data);
     });
     return () => request.abort();
-  }, [client, loadAttempt, source]);
+  }, [client, loadAttempt, upload]);
 
-  async function chooseFile(file: File) {
-    setReading(true);
-    setSource(undefined);
-    setCategories(undefined);
-    setCategoryError(false);
-    setSavedCount(0);
+  function startReview(nextSource?: ImportSource) {
+    setSource(nextSource);
+    setMapping(nextSource && defaultMapping(nextSource.header));
     setPage(0);
     setShowProblems(false);
     setShowDuplicates(false);
@@ -58,16 +60,44 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
     setChoices(new Map());
     setLookup(undefined);
     setError('');
+  }
+
+  async function chooseFile(file: File) {
+    setReading(true);
+    setUpload(undefined);
+    setCategories(undefined);
+    setCategoryError(false);
+    setSavedCount(0);
+    setWorksheet(-1);
+    setCompletedWorksheets(new Set());
+    startReview();
+    const extension = file.name.split('.').pop()?.toLowerCase();
     try {
-      const parsed = await readCsv(file);
-      if (typeof parsed === 'string') {
-        setError(parsed);
-        return;
+      if (extension === 'xlsx') {
+        const worksheets = await readExcel(file);
+        if (typeof worksheets === 'string') {
+          setError(worksheets);
+          return;
+        }
+        const first = worksheets.findIndex(({ source }) => source);
+        setWorksheet(first);
+        startReview(worksheets[first].source);
+        setUpload({ name: file.name, worksheets });
+      } else if (extension === 'csv') {
+        const parsed = await readCsv(file);
+        if (typeof parsed === 'string') {
+          setError(parsed);
+          return;
+        }
+        startReview(parsed);
+        setUpload({ name: file.name });
+      } else {
+        setError('Choose a .csv or .xlsx file.');
       }
-      setSource(parsed);
-      setMapping(defaultMapping(parsed.header));
     } catch {
-      setError('Could not open the file. Choose the CSV again.');
+      setError(extension === 'xlsx'
+        ? 'Could not open this Excel workbook. Choose a valid, unencrypted .xlsx file.'
+        : 'Could not open the CSV. Choose a UTF-8 CSV file.');
     } finally {
       setReading(false);
     }
@@ -75,7 +105,7 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
 
   const columnError = mapping ? mappingProblem(mapping) : '';
   const review = useMemo(() => source && mapping && !columnError && categories
-    ? reviewCsv(source, mapping, categories, corrections).filter(({ id }) => !removed.has(id))
+    ? reviewExpenses(source, mapping, categories, corrections).filter(({ id }) => !removed.has(id))
     : [], [source, mapping, columnError, categories, corrections, removed]);
   const problems = review.filter(({ problem }) => problem);
   const datesKey = useMemo(() => [...new Set(review.flatMap(({ expense }) =>
@@ -112,6 +142,8 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
   const editingLocked = saving || unconfirmed || editing !== undefined;
   const canImport = !!currentLookup?.matches && expenses.length > 0 && !problems.length && !unresolved && !editing;
   const importCount = expenses.length + problems.length;
+  const worksheets = upload?.worksheets;
+  const rowLabel = worksheets ? 'worksheet row' : 'CSV row';
 
   function closeEditor() {
     setEditing(undefined);
@@ -133,7 +165,14 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
       }
       setUnconfirmed(false);
       setSavedCount(expenses.length);
-      setSource(undefined);
+      startReview();
+      const completed = new Set(completedWorksheets).add(worksheet);
+      if (worksheets?.some(({ source }, index) => source && !completed.has(index))) {
+        setCompletedWorksheets(completed);
+        setWorksheet(-1);
+      } else {
+        setUpload(undefined);
+      }
     } catch {
       setUnconfirmed(true);
       setError('Could not confirm the import. Retry from this review.');
@@ -144,21 +183,40 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
   }
 
   return (
-    <section className="panel csv-import" aria-label="CSV expense import">
-      <label className="csv-file">CSV file
-        <input type="file" accept=".csv,text/csv" disabled={reading || editingLocked}
+    <section className="panel csv-import" aria-label="Expense import">
+      <label className="csv-file">Expense file
+        <input type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          disabled={reading || editingLocked}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = '';
             if (file) void chooseFile(file);
           }} />
       </label>
-      <p className="form-help">Choose a UTF-8 CSV with a header row and USD amounts.</p>
-      {reading && <p role="status">Reading CSV…</p>}
+      <p className="form-help">Choose a CSV or Excel (.xlsx) file with a header row and USD amounts.</p>
+      {reading && <p role="status">Reading file…</p>}
       {error && <p className="notice-error" role="alert">{error}</p>}
       {savedCount > 0 && <p role="status">Imported {savedCount} {savedCount === 1 ? 'expense' : 'expenses'}. <a href="#/activity">View Activity</a></p>}
+      {upload && <p className="csv-filename">{upload.name}</p>}
+      {worksheets && <div className="group-form">
+        <label>Worksheet
+          <select value={worksheet} disabled={editingLocked} onChange={(event) => {
+            const next = Number(event.currentTarget.value);
+            setWorksheet(next);
+            startReview(worksheets[next].source);
+          }}>
+            {worksheet === -1 && <option value={-1} disabled>Choose a worksheet</option>}
+            {worksheets.map(({ name, source }, index) => {
+              const completed = completedWorksheets.has(index);
+              return <option key={index} value={index} disabled={!source || completed}>
+                {name}{completed ? ' (imported)' : source ? '' : ' (needs a header and data)'}
+              </option>;
+            })}
+          </select>
+        </label>
+        {worksheets.length > 1 && <p className="form-help">Import one worksheet at a time. Switching worksheets clears this review.</p>}
+      </div>}
       {source && mapping && <>
-        <p className="csv-filename">{source.name}</p>
         <fieldset className="csv-mapping group-form" disabled={editingLocked}>
           <legend>Match columns</legend>
           {fields.map(({ id, label }) => (
@@ -187,8 +245,8 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
         </div>}
         {!columnError && categories && <div className="csv-review">
           <h2>Review expenses</h2>
-          <p role="status">{review.length} CSV {review.length === 1 ? 'row' : 'rows'}. {problems.length > 0
-            ? `${problems.length} need correction. Edit or remove those rows before importing.`
+          <p role="status">{review.length} {rowLabel}{review.length === 1 ? '' : 's'}. {problems.length > 0
+            ? `${problems.length} ${problems.length === 1 ? 'needs' : 'need'} correction. Edit or remove before importing.`
             : review.length > 0 ? 'Check the rows before importing.' : 'No expenses selected.'}</p>
           {datesKey && !currentLookup && <p role="status">Checking for possible duplicates…</p>}
           {currentLookup?.matches === null && <div role="alert">
@@ -220,7 +278,7 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
               setPage(0);
             }} /> Show only possible duplicates
           </label>}
-          <ol className="csv-rows" aria-label="CSV rows">
+          <ol className="csv-rows" aria-label="Rows to review">
             {visibleRows.slice(visiblePage * pageSize, (visiblePage + 1) * pageSize).map((row) => {
               const duplicate = duplicates?.get(row.id);
               return (
@@ -232,8 +290,8 @@ export function CsvImportPage({ client }: { client: SupabaseClient }) {
                   {row.problem && <p className="notice-error">{row.problem}</p>}
                   {duplicate && <>
                     <p>Possible duplicate. Same date, amount, and description as {duplicate.matchesSaved
-                      ? 'a saved expense' : `CSV row ${duplicate.earlierRow}`}{duplicate.matchesSaved && duplicate.earlierRow !== undefined
-                        ? ` and CSV row ${duplicate.earlierRow}` : ''}.</p>
+                      ? 'a saved expense' : `${rowLabel} ${duplicate.earlierRow}`}{duplicate.matchesSaved && duplicate.earlierRow !== undefined
+                        ? ` and ${rowLabel} ${duplicate.earlierRow}` : ''}.</p>
                     <div role="group" aria-label={`Possible duplicate on row ${row.number}`} className="csv-row-actions">
                       {(['keep', 'skip'] as const).map((action) => (
                         <button key={action} type="button" className="button-secondary"

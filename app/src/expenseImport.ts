@@ -11,13 +11,13 @@ export const fields = [
 type Field = (typeof fields)[number]['id'];
 export type Mapping = Record<Field, number>;
 export type Category = { id: string; name: string };
-export type CsvSource = { name: string; header: string[]; rows: { id: string; cells: string[] }[] };
+export type ImportSource = { header: string[]; rows: { id: string; number: number; cells: string[] }[] };
 type Expense = { id: string; occurred_on: string; amount: string; description: string; category_id: string; notes: string | null };
 export type ReviewValues = { date: string; amount: string; description: string; categoryId: string; notes: string };
 export type ReviewedRow = ReviewValues & { id: string; number: number; category: string }
   & ({ expense: Expense; problem?: never } | { expense?: never; problem: string });
 
-export async function readCsv(file: File): Promise<CsvSource | string> {
+export async function readCsv(file: File): Promise<ImportSource | string> {
   const { default: papa } = await import('papaparse');
   const input = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
   const { data, errors } = papa.parse<string[]>(input, { delimiter: ',', skipEmptyLines: 'greedy' });
@@ -28,7 +28,7 @@ export async function readCsv(file: File): Promise<CsvSource | string> {
   }
   const [header, ...rows] = data;
   if (!header || !rows.length) return 'Choose a CSV with a header and at least one expense.';
-  return { name: file.name, header, rows: rows.map((cells) => ({ id: crypto.randomUUID(), cells })) };
+  return { header, rows: rows.map((cells, index) => ({ id: crypto.randomUUID(), number: index + 2, cells })) };
 }
 
 export function defaultMapping(header: string[]): Mapping {
@@ -46,8 +46,8 @@ export function mappingProblem(mapping: Mapping) {
   return '';
 }
 
-export function reviewCsv(
-  source: CsvSource, mapping: Mapping, categories: Category[], corrections: ReadonlyMap<string, ReviewValues>,
+export function reviewExpenses(
+  source: ImportSource, mapping: Mapping, categories: Category[], corrections: ReadonlyMap<string, ReviewValues>,
 ): ReviewedRow[] {
   const categoryByName = new Map<string, string | null>();
   const categoryById = new Map<string, string>();
@@ -56,7 +56,7 @@ export function reviewCsv(
     categoryByName.set(key, categoryByName.has(key) ? null : category.id);
     categoryById.set(category.id, category.name);
   }
-  return source.rows.map(({ id, cells }, index) => {
+  return source.rows.map(({ id, number, cells }) => {
     const corrected = corrections.get(id);
     const date = (corrected?.date ?? cells[mapping.date] ?? '').trim();
     const amount = (corrected?.amount ?? cells[mapping.amount] ?? '').trim();
@@ -66,7 +66,7 @@ export function reviewCsv(
     const categoryId = corrected ? corrected.categoryId : categoryByName.get(originalCategory.toLowerCase());
     const category = corrected ? categoryById.get(corrected.categoryId) ?? '' : originalCategory;
     const normalized = normalizeUsdAmount(amount.startsWith('.') ? '0' + amount : amount);
-    const row = { id, number: index + 2, date, amount, description, category, categoryId: categoryId ?? '', notes };
+    const row = { id, number, date, amount, description, category, categoryId: categoryId ?? '', notes };
 
     if (!corrected && cells.length !== source.header.length) return { ...row, problem: 'The number of columns differs from the header.' };
     if (!validDate(date)) return { ...row, problem: 'Use a valid date in YYYY-MM-DD format.' };

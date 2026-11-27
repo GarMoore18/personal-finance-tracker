@@ -7,7 +7,7 @@ import { HomePage } from './HomePage';
 import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
 import { CategorySettings } from './CategorySettings';
-import { CsvImportPage } from './CsvImportPage';
+import { ExpenseImportPage } from './ExpenseImportPage';
 import { DataExportPage } from './DataExportPage';
 import { changeAppearance, initialTheme, themes } from './appearance';
 import { dashboardWidgets, loadDashboardPreferences, saveDashboardPreferences } from './dashboardPreferences';
@@ -107,7 +107,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
         )}
         {page.id === 'accounts' && <AccountsPage client={client} />}
         {page.id === 'categories' && <CategorySettings client={client} />}
-        {page.id === 'import' && <CsvImportPage client={client} />}
+        {page.id === 'import' && <ExpenseImportPage client={client} />}
         {page.id === 'export' && <DataExportPage client={client} />}
         {page.id === 'more' && (
           <>
@@ -144,7 +144,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
             </fieldset>
             <div className="settings-links">
               <a className="action" href="#/categories">Manage categories</a>
-              <a className="action" href="#/import">Import CSV</a>
+              <a className="action" href="#/import">Import expenses</a>
               <a className="action" href="#/export">Export data</a>
             </div>
             {signOut}
