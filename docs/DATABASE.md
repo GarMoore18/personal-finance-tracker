@@ -19,3 +19,5 @@ Create an owner for manual testing through local Studio or Supabase's Auth Admin
 ## Hosted setup
 
 Use a designated Supabase project for Ledger. Confirm the database major version, link the CLI to the designated project, review pending changes with `supabase db push --remote --dry-run`, and apply reviewed migrations with `supabase db push --remote`. Configure Auth in the hosted project separately. Create the owner administratively, disable public and anonymous sign-ups, and verify authentication and isolation before entering data. Keep the backups and recovery conditions in [ADR 0001](decisions/0001-database-auth-storage.md).
+
+Use the [backup and recovery runbook](BACKUP-RECOVERY.md) to configure the nightly financial export and rehearse recovery before entering real data.
