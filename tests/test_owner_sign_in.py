@@ -287,6 +287,8 @@ def test_manual_expense(url, browser):
             rows = []
             if overview_ready:
                 rows = [
+                    *[{**expense, 'id': f'quick-{index}', 'amount': float(expense['amount']),
+                       'categories': {'name': 'Groceries'}} for index, expense in enumerate(saved)],
                     {'id': '4', 'occurred_on': today, 'amount': 10.10,
                      'description': 'Coffee beans', 'categories': {'name': 'Groceries'}},
                     {'id': '5', 'occurred_on': today, 'amount': 0.20,
@@ -455,6 +457,28 @@ def test_manual_expense(url, browser):
     expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$10.30')
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('PASS Home data, desktop and 320px layouts, labeled navigation, and dark theme')
+
+    page.get_by_role('button', name='Quick add expense').click()
+    quick_add = page.get_by_role('region', name='Expense details')
+    amount = quick_add.get_by_label('Amount (USD)')
+    expect(amount).to_be_focused()
+    expect(quick_add.get_by_label('Date', exact=True)).to_have_value(today)
+    for description in ('Fresh bread', 'Fresh fruit'):
+        amount.fill('.75')
+        quick_add.get_by_label('Description').fill(description)
+        quick_add.get_by_label('Category').select_option(label='Groceries')
+        quick_add.get_by_role('button', name='Save expense').click()
+        expect(page.get_by_role('region', name='Recent expenses')).to_contain_text(description)
+        expect(amount).to_have_value('')
+        expect(amount).to_be_focused()
+        expect(quick_add.get_by_label('Description')).to_have_value('')
+        expect(quick_add.get_by_label('Category')).to_have_value('')
+    expect(page.get_by_role('status').filter(has_text='2 expenses saved.')).to_be_visible()
+    expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$11.80')
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    page.get_by_role('button', name='Close quick add').click()
+    expect(quick_add).to_be_hidden()
+    print('PASS dashboard quick add, repeated saves, updated totals, and narrow layout')
     page.close()
 
 
