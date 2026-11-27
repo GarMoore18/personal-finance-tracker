@@ -15,8 +15,9 @@ update public.accounts set current_balance = 1250.00, balance_observed_on = '202
 
 insert into public.categories (id, name, color, icon)
 values ('30000000-0000-4000-8000-000000000001', 'Test groceries', '#32734a', 'basket');
-insert into public.transactions (category_id, occurred_on, amount, description)
-values ('30000000-0000-4000-8000-000000000001', '2026-11-24', 42.50, 'Test groceries');
+insert into public.transactions (id, category_id, occurred_on, amount, description)
+values ('40000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
+  '2026-11-24', 42.50, 'Test groceries');
 
 do $$
 begin
@@ -43,6 +44,21 @@ begin
     raise exception 'Extra decimal precision was accepted';
   exception when check_violation then null;
   end;
+
+  update public.transactions
+  set amount = 43.25, occurred_on = '2026-11-25', description = 'Updated groceries', notes = 'Test note'
+  where id = '40000000-0000-4000-8000-000000000001';
+  if not exists (
+    select 1 from public.transactions
+    where id = '40000000-0000-4000-8000-000000000001'
+      and category_id = '30000000-0000-4000-8000-000000000001'
+      and amount = 43.25
+      and occurred_on = '2026-11-25'
+      and description = 'Updated groceries'
+      and notes = 'Test note'
+  ) then
+    raise exception 'The owner could not persist and read back an expense update';
+  end if;
 end $$;
 
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
@@ -61,6 +77,17 @@ begin
     raise exception 'Another user updated an account';
   end if;
 
+  update public.transactions set description = 'Changed by another user'
+  where id = '40000000-0000-4000-8000-000000000001';
+  if found then
+    raise exception 'Another user updated an expense';
+  end if;
+
+  delete from public.transactions where id = '40000000-0000-4000-8000-000000000001';
+  if found then
+    raise exception 'Another user deleted an expense';
+  end if;
+
   begin
     insert into public.transactions (category_id, occurred_on, amount, description)
     values ('30000000-0000-4000-8000-000000000001', '2026-11-24', 1.00, 'Wrong owner');
@@ -74,6 +101,22 @@ begin
     raise exception 'A cross-owner group reference was accepted';
   exception when foreign_key_violation then null;
   end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+do $$
+begin
+  delete from public.transactions where id = '40000000-0000-4000-8000-000000000001';
+  if not found or exists (select 1 from public.transactions) then
+    raise exception 'The owner could not delete the expense';
+  end if;
+
+  if (select current_balance from public.accounts) is distinct from 1250.00::numeric
+    or (select balance from public.balance_snapshots where month = '2026-11-01') is distinct from 1100.00::numeric
+    or (select balance from public.balance_snapshots where month = '2026-12-01') is distinct from 1250.00::numeric
+    or (select count(*) from public.balance_snapshots) <> 2 then
+    raise exception 'Editing or deleting an expense affected current balances or history';
+  end if;
 end $$;
 
 set local role anon;
