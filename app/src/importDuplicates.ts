@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ReviewedRow } from './csvImport';
+import type { ReviewedRow } from './expenseImport';
 import { normalizeUsdAmount } from './financialInputs';
 
 type ExpenseMatch = { occurred_on: string; amount: string | number; description: string };

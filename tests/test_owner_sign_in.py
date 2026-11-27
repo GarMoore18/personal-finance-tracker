@@ -7,12 +7,12 @@ import re
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from threading import Thread
 from urllib.parse import parse_qs, urlsplit
 from xml.etree import ElementTree
-from zipfile import ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -27,6 +27,38 @@ USER = {
     'user_metadata': {},
 }
 PASSWORD = 'local-fixture-password'
+
+
+def excel_expenses():
+    spreadsheet = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    office_rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    package_rel = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    names = ['Empty', 'First batch', 'February']
+    buffer = BytesIO()
+    with ZipFile(buffer, 'w', ZIP_DEFLATED) as workbook:
+        sheets = ''.join(f'<sheet name="{name}" sheetId="{n}" r:id="rId{n}"/>'
+                         for n, name in enumerate(names, 1))
+        workbook.writestr('xl/workbook.xml',
+            f'<workbook xmlns="{spreadsheet}" xmlns:r="{office_rel}"><sheets>{sheets}</sheets></workbook>')
+        relations = ''.join(f'<Relationship Id="rId{n}" Type="{office_rel}/worksheet" Target="worksheets/sheet{n}.xml"/>'
+                            for n in range(1, 4))
+        relations += f'<Relationship Id="rId4" Type="{office_rel}/styles" Target="styles.xml"/>'
+        workbook.writestr('xl/_rels/workbook.xml.rels', f'<Relationships xmlns="{package_rel}">{relations}</Relationships>')
+        workbook.writestr('xl/styles.xml', f'<styleSheet xmlns="{spreadsheet}">'
+            '<cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="14"/></cellXfs></styleSheet>')
+        header = ''.join(f'<c r="{column}1" t="inlineStr"><is><t>{label}</t></is></c>'
+                         for column, label in zip('ABCDE', ['Date', 'Amount', 'Description', 'Category', 'Notes']))
+        for n, description in ((1, ''), (2, 'Unselected expense'), (3, 'Bike lights')):
+            data = '' if not description else (
+                f'<row r="1">{header}</row><row r="2"><c r="A2" s="1"><v>45350</v></c>'
+                '<c r="B2"><v>12.25</v></c>'
+                f'<c r="C2" t="inlineStr"><is><t>{description}</t></is></c>'
+                '<c r="D2" t="inlineStr"><is><t>Old category</t></is></c></row>')
+            workbook.writestr(f'xl/worksheets/sheet{n}.xml',
+                f'<worksheet xmlns="{spreadsheet}"><sheetData>{data}</sheetData></worksheet>')
+    return buffer.getvalue()
+
+
 VIEWPORTS = (
     ('compact phone', {'width': 320, 'height': 720}),
     ('phone', {'width': 390, 'height': 844}),
@@ -359,6 +391,9 @@ def test_manual_expense(url, browser, viewport):
         elif path == '/rest/v1/transactions' and request.method == 'GET':
             query = parse_qs(urlsplit(request.url).query)
             if query.get('select') == ['occurred_on,amount,description']:
+                if query['occurred_on'] == ['in.(2024-02-28)']:
+                    route.fulfill(headers=headers, json=[])
+                    return
                 assert query['occurred_on'] == ['in.(2024-02-28,2024-02-29)']
                 assert query['order'] == ['occurred_on.desc,id.asc']
                 offset, limit = int(query['offset'][0]), int(query['limit'][0])
@@ -732,9 +767,9 @@ def test_manual_expense(url, browser, viewport):
     print('PASS spending totals across request pages and expense-only refresh after Quick Add')
 
     navigation.get_by_role('link', name='More').click()
-    page.get_by_role('link', name='Import CSV').click()
-    csv = page.get_by_role('region', name='CSV expense import')
-    file_picker = csv.get_by_label('CSV file')
+    page.get_by_role('link', name='Import expenses').click()
+    csv = page.get_by_role('region', name='Expense import')
+    file_picker = csv.get_by_label('Expense file')
     header = 'Booking date,Cost,Merchant,Group,Notes\r\n'
     valid = '2024-02-29,10.05,"Bread, fresh",Food at home,"First line\nSecond line"\r\n'
 
@@ -803,6 +838,41 @@ def test_manual_expense(url, browser, viewport):
                      'description': 'Bread, fresh', 'category_id': category_id, 'notes': 'First line\nSecond line'}
     assert second['category_id'] == 'custom' and second['amount'] == '0.75' and second['notes'] is None
     print('PASS CSV mapping, row correction and removal, duplicate check and choices, explicit import, and safe retry')
+
+    file_picker.set_input_files({'name': 'expenses.xls', 'mimeType': 'application/vnd.ms-excel', 'buffer': b'old'})
+    expect(csv.get_by_role('alert')).to_have_text('Choose a .csv or .xlsx file.')
+    xlsx_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    file_picker.set_input_files({'name': 'invalid.xlsx', 'mimeType': xlsx_type, 'buffer': b'invalid'})
+    expect(csv.get_by_role('alert')).to_contain_text('Could not open this Excel workbook.')
+    workbook = {'name': 'expenses.XLSX', 'mimeType': xlsx_type, 'buffer': excel_expenses()}
+    file_picker.set_input_files(workbook)
+    worksheet = csv.get_by_role('combobox', name='Worksheet')
+    expect(worksheet).to_have_value('1')
+    expect(worksheet.locator('option:disabled').filter(has_text='Empty (needs a header and data)')).to_have_count(1)
+    expect(csv.get_by_text('Unselected expense', exact=True)).to_be_visible()
+    worksheet.select_option(label='February')
+    expect(csv.get_by_text('Unselected expense', exact=True)).to_have_count(0)
+    expect(csv.get_by_text('Bike lights', exact=True)).to_be_visible()
+    expect(csv.get_by_text('Row 2 · 2024-02-28 · Old category')).to_be_visible()
+    confirm_excel = csv.get_by_role('button', name='Import 1 expense')
+    expect(confirm_excel).to_be_disabled()
+    csv.get_by_role('button', name='Edit row 2').click()
+    excel_editor = csv.get_by_role('form', name='Edit row 2')
+    excel_editor.get_by_label('Category').select_option('custom')
+    excel_editor.get_by_role('button', name='Apply changes').click()
+    expect(confirm_excel).to_be_enabled()
+    assert_layout(page, confirm_excel)
+    assert len(import_attempts) == 2
+    confirm_excel.click()
+    expect(csv.get_by_role('status').filter(has_text='Imported 1 expense.')).to_be_visible()
+    expect(worksheet).to_have_value('-1')
+    expect(worksheet.locator('option:disabled').filter(has_text='February (imported)')).to_have_count(1)
+    worksheet.select_option(label='First batch')
+    expect(csv.get_by_text('Unselected expense', exact=True)).to_be_visible()
+    added, = import_attempts[-1]
+    assert added == {'id': added['id'], 'occurred_on': '2024-02-28', 'amount': '12.25',
+                     'description': 'Bike lights', 'category_id': 'custom', 'notes': None}
+    print('PASS Excel worksheet selection, numeric date and amount, correction, confirmation, and unsupported file feedback')
 
     navigation.get_by_role('link', name='More').click()
     page.get_by_role('link', name='Export data').click()

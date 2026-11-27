@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import type { Category, ReviewedRow, ReviewValues } from './csvImport';
+import type { Category, ReviewedRow, ReviewValues } from './expenseImport';
 
 export function ImportRowEditor({ row, categories, onApply, onCancel }: {
   row: ReviewedRow;
