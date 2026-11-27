@@ -19,6 +19,8 @@ In Activity, select a month and use **Search descriptions** to find expenses by 
 
 Open **Filters** to narrow the selected month by category, dates, or amounts. Date and amount bounds are inclusive and can be used on their own. Filters combine with description search. **Reset filters** clears the category, date, and amount filters while keeping the search text.
 
+Under **More → Appearance**, choose System, Light, or Dark. System follows the device's color scheme. Ledger remembers your selection in the current browser and applies it to the sign-in screen as well.
+
 ## Supabase configuration
 
 Copy `app/.env.example` to `app/.env.local` and set `LEDGER_SUPABASE_URL` and `LEDGER_SUPABASE_PUBLISHABLE_KEY`. Never commit environment files, service-role keys, database passwords, or provider tokens. The URL and publishable key are public browser configuration.

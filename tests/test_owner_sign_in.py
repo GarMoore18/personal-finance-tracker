@@ -29,7 +29,7 @@ def encode(data):
 
 
 def test_sign_in(url, browser):
-    page = browser.new_page(viewport={'width': 390, 'height': 844})
+    page = browser.new_page(viewport={'width': 390, 'height': 844}, color_scheme='light')
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     verification_available = False
@@ -87,10 +87,15 @@ def test_sign_in(url, browser):
     page.reload()
     expect(page.get_by_role('heading', name='Accounts', exact=True)).to_be_visible()
     page.get_by_role('link', name='More').click()
+    page.get_by_role('radio', name='dark').check()
+    page.reload()
+    expect(page.get_by_role('radio', name='dark')).to_be_checked()
+    expect(page.locator('html')).to_have_css('color-scheme', 'dark')
     page.get_by_role('button', name='Sign out').click()
     expect(page.get_by_role('heading', name='Sign in')).to_be_visible()
     page.reload()
     expect(page.get_by_role('heading', name='Sign in')).to_be_visible()
+    expect(page.locator('html')).to_have_css('color-scheme', 'dark')
     expect(page.get_by_role('navigation')).to_have_count(0)
     assert not errors, errors
     print('PASS owner sign-in, verification retry, session reload, and sign-out')
@@ -212,7 +217,14 @@ def test_account_management(url, browser):
     page.get_by_label('Current balance').fill('131.00')
     page.get_by_label('Balance observed on').fill(today)
     page.get_by_role('button', name='Save balance').click()
-    expect(page.get_by_role('alert')).to_contain_text(f'on or after {next_month_observed}')
+    alert = page.get_by_role('alert')
+    expect(alert).to_contain_text(f'on or after {next_month_observed}')
+    page.emulate_media(color_scheme='dark')
+    expect(page.locator('html')).to_have_css('color-scheme', 'dark')
+    expect(alert).to_have_css('color', 'rgb(255, 180, 171)')
+    page.emulate_media(color_scheme='light')
+    expect(page.locator('html')).to_have_css('color-scheme', 'light')
+    expect(alert).to_have_css('color', 'rgb(165, 39, 39)')
     assert len([write for write in writes if write[0] == 'accounts' and write[1] == 'PATCH' and 'current_balance' in write[2]]) == write_count
     assert all(item['balance'] in ('126.75', '130.25') for item in snapshots if item['account_id'] == account['id'])
 
