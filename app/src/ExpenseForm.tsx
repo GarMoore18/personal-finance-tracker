@@ -6,12 +6,13 @@ import type { Transaction } from './transactions';
 
 type Category = { id: string; name: string };
 
-export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted }: {
+export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted, quickAdd = false }: {
   client: SupabaseClient;
   onSaved: () => void;
   expense?: Transaction;
   onCancel?: () => void;
   onDeleted?: () => void;
+  quickAdd?: boolean;
 }) {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -21,6 +22,15 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted }: {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const submitting = useRef(false);
+  const amountInput = useRef<HTMLInputElement>(null);
+  const focusAmount = useRef(quickAdd);
+
+  useEffect(() => {
+    if (!saving && focusAmount.current) {
+      focusAmount.current = false;
+      amountInput.current?.focus();
+    }
+  }, [saving]);
 
   useEffect(() => {
     const request = new AbortController();
@@ -37,7 +47,8 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted }: {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current) return;
-    const fields = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const fields = new FormData(form);
     const enteredAmount = String(fields.get('amount')).trim();
     const amount = normalizeUsdAmount(enteredAmount.startsWith('.') ? '0' + enteredAmount : enteredAmount);
     const description = String(fields.get('description')).trim();
@@ -67,6 +78,10 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted }: {
       if (result.error || (expense && !result.data)) {
         setError('Could not save the expense. Your entries are still here.');
         return;
+      }
+      if (quickAdd) {
+        form.reset();
+        focusAmount.current = true;
       }
       onSaved();
     } finally {
@@ -108,7 +123,7 @@ export function ExpenseForm({ client, onSaved, expense, onCancel, onDeleted }: {
       {categories?.length === 0 && <p role="status">No expense categories are available for this account.</p>}
       <form onSubmit={save}>
         <fieldset className="expense-form" disabled={saving || deleting || confirmDelete}>
-          <label>Amount (USD)<input className="expense-amount" name="amount" inputMode="decimal" placeholder="0.00" defaultValue={expense?.amount} required /></label>
+          <label>Amount (USD)<input ref={amountInput} className="expense-amount" name="amount" inputMode="decimal" placeholder="0.00" defaultValue={expense?.amount} required /></label>
           <label>Description<input name="description" placeholder="What was it for?" defaultValue={expense?.description} required /></label>
           <label>Category
             <select key={categories === null ? 'loading' : 'loaded'} name="category" defaultValue={expense?.category_id ?? ''} disabled={!categories?.length} required>

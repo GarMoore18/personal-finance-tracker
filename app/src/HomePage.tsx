@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatUsd, toCents } from './money';
 import { currentMonth, dayLabel, groupDays, loadMonth, transactionQuery } from './transactions';
 import type { Day, Transaction } from './transactions';
+import { ExpenseForm } from './ExpenseForm';
 
 type Account = { id: string; name: string; current_balance: string | number };
 type Overview = { count: number | null; worthFailed: boolean; spending: bigint | null; netWorth: bigint | null; accounts: Account[] | null; recent: Day[] | null };
@@ -12,6 +13,8 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
   const month = currentMonth();
   const [overview, setOverview] = useState<Overview>();
   const [attempt, setAttempt] = useState(0);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
 
   useEffect(() => {
     const request = new AbortController();
@@ -43,6 +46,26 @@ export function HomePage({ client, onCurrentActivity }: { client: SupabaseClient
       <div className="overview-heading">
         <h1>Overview</h1>
         <span>{monthLabel.format(new Date(month + '-01T00:00:00Z'))}</span>
+      </div>
+      <div>
+        <button type="button" className="overview-quick-add" aria-expanded={quickAddOpen} aria-controls="quick-add-expense"
+          onClick={() => {
+            setQuickAddOpen((open) => !open);
+            setSavedCount(0);
+          }}>
+          {quickAddOpen ? 'Close quick add' : 'Quick add expense'}
+        </button>
+      </div>
+      <div id="quick-add-expense" hidden={!quickAddOpen}>
+        <div role="status">
+          {savedCount > 0 && <p className="expense-confirmation">
+            {savedCount === 1 ? 'Expense saved.' : `${savedCount} expenses saved.`}
+          </p>}
+        </div>
+        {quickAddOpen && <ExpenseForm client={client} quickAdd onSaved={() => {
+          setSavedCount((count) => count + 1);
+          setAttempt((previous) => previous + 1);
+        }} />}
       </div>
       {!overview && <p role="status" className="overview-notice">Loading your overview…</p>}
       {missing && <div className="overview-error" role="alert">

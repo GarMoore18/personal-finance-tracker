@@ -287,6 +287,8 @@ def test_manual_expense(url, browser):
             rows = []
             if overview_ready:
                 rows = [
+                    *[{**expense, 'id': f'quick-{index}', 'amount': float(expense['amount']),
+                       'categories': {'name': 'Groceries'}} for index, expense in enumerate(saved)],
                     {'id': '4', 'occurred_on': today, 'amount': 10.10,
                      'description': 'Coffee beans', 'categories': {'name': 'Groceries'}},
                     {'id': '5', 'occurred_on': today, 'amount': 0.20,
@@ -297,9 +299,9 @@ def test_manual_expense(url, browser):
                     *[{**expense, 'id': '1', 'amount': float(expense['amount']),
                        'categories': {'name': 'Groceries'}} for expense in saved],
                     {'id': '2', 'occurred_on': '2024-02-29', 'amount': 0.1,
-                     'description': 'Parking meter', 'categories': {'name': 'Transport'}},
+                     'description': 'Parking meter', 'category_id': 'transport', 'categories': {'name': 'Transport'}},
                     {'id': '3', 'occurred_on': '2024-02-28', 'amount': 8,
-                     'description': 'Sandwich', 'categories': {'name': 'Dining'}},
+                     'description': 'Sandwich', 'category_id': 'dining', 'categories': {'name': 'Dining'}},
                 ]
             route.fulfill(headers=headers, json=rows)
         elif path == '/rest/v1/current_net_worth':
@@ -383,7 +385,57 @@ def test_manual_expense(url, browser):
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('PASS monthly activity, daily totals, expense details, and expandable groups')
 
-    latest.locator('summary').click()
+    search = page.get_by_role('searchbox', name='Search descriptions')
+    search.fill('  SaNd  ')
+    expect(dates).to_have_count(1)
+    expect(page.get_by_text('Sandwich')).to_be_visible()
+    expect(page.get_by_text('Market supplies')).to_have_count(0)
+    search.fill('meter')
+    expect(page.get_by_text('Parking meter')).to_be_visible()
+    expect(dates.locator('summary')).to_contain_text('$0.10')
+    search.fill('Groceries')
+    expect(page.get_by_role('status').filter(has_text='No expenses match')).to_be_visible()
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    page.get_by_role('button', name='Clear search').click()
+    expect(search).to_have_value('')
+    expect(search).to_be_focused()
+    expect(dates).to_have_count(2)
+
+    page.get_by_text('Filters', exact=True).click()
+    filters = page.get_by_role('group', name='Filter expenses in the selected month')
+    category = filters.get_by_label('Category')
+    category.select_option(label='Transport')
+    expect(page.get_by_text('Parking meter')).to_be_visible()
+    expect(page.get_by_text('Market supplies')).to_have_count(0)
+    category.select_option(label='All categories')
+    filters.get_by_label('From date').fill('2024-02-29')
+    expect(page.get_by_text('Sandwich')).to_have_count(0)
+    filters.get_by_role('button', name='Clear dates').click()
+    filters.get_by_label('Minimum amount (USD)').fill('8.00')
+    expect(page.get_by_text('Sandwich')).to_be_visible()
+    expect(page.get_by_text('Parking meter')).to_have_count(0)
+    filters.get_by_label('Maximum amount (USD)').fill('7.99')
+    expect(filters.get_by_role('alert')).to_contain_text('maximum amount')
+    filters.get_by_role('button', name='Clear amounts').click()
+
+    category.select_option(label='Groceries')
+    filters.get_by_label('Through date').fill('2024-02-29')
+    filters.get_by_label('Maximum amount (USD)').fill('12.30')
+    expect(page.get_by_text('Filters (3 active)', exact=True)).to_be_visible()
+    expect(page.get_by_text('Market supplies')).to_be_visible()
+    search.fill('meter')
+    expect(page.get_by_role('status').filter(has_text='No expenses match your filters')).to_be_visible()
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    filters.get_by_role('button', name='Reset filters').click()
+    expect(search).to_have_value('meter')
+    expect(page.get_by_text('Parking meter')).to_be_visible()
+    page.get_by_role('button', name='Clear search').click()
+    page.get_by_text('Filters', exact=True).click()
+    print('PASS independent and combined Activity filters, invalid bounds, resets, and mobile overflow')
+
+    earlier.locator('summary').click()
+    print('PASS description search, no matches, and keyboard focus after clearing')
+
     latest.get_by_role('button', name='Edit Market supplies').click()
     editor = page.get_by_role('region', name='Edit expense')
     expect(editor.get_by_label('Description')).to_have_value('Market supplies')
@@ -438,6 +490,28 @@ def test_manual_expense(url, browser):
     expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$10.30')
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('PASS Home data, desktop and 320px layouts, labeled navigation, and dark theme')
+
+    page.get_by_role('button', name='Quick add expense').click()
+    quick_add = page.get_by_role('region', name='Expense details')
+    amount = quick_add.get_by_label('Amount (USD)')
+    expect(amount).to_be_focused()
+    expect(quick_add.get_by_label('Date', exact=True)).to_have_value(today)
+    for description in ('Fresh bread', 'Fresh fruit'):
+        amount.fill('.75')
+        quick_add.get_by_label('Description').fill(description)
+        quick_add.get_by_label('Category').select_option(label='Groceries')
+        quick_add.get_by_role('button', name='Save expense').click()
+        expect(page.get_by_role('region', name='Recent expenses')).to_contain_text(description)
+        expect(amount).to_have_value('')
+        expect(amount).to_be_focused()
+        expect(quick_add.get_by_label('Description')).to_have_value('')
+        expect(quick_add.get_by_label('Category')).to_have_value('')
+    expect(page.get_by_role('status').filter(has_text='2 expenses saved.')).to_be_visible()
+    expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$11.80')
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    page.get_by_role('button', name='Close quick add').click()
+    expect(quick_add).to_be_hidden()
+    print('PASS dashboard quick add, repeated saves, updated totals, and narrow layout')
     page.close()
 
 
