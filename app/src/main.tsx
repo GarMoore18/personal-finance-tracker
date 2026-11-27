@@ -2,7 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthGate } from './AuthGate';
+import { initialTheme } from './appearance';
 import './styles.css';
+
+document.documentElement.dataset.theme = initialTheme();
 
 const config = __LEDGER_SUPABASE__;
 const client = config ? createClient(config.url, config.publishableKey, {

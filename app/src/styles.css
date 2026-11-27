@@ -8,6 +8,7 @@
   --accent: #4338ca;
   --on-accent: #fff;
   --selected: #eeedff;
+  --danger: #a52727;
   --space-1: 0.5rem;
   --space-2: 0.75rem;
   --space-3: 1rem;
@@ -29,6 +30,7 @@
   --accent: #c2baff;
   --on-accent: #211b52;
   --selected: #333057;
+  --danger: #ffb4ab;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +44,7 @@
     --accent: #c2baff;
     --on-accent: #211b52;
     --selected: #333057;
+    --danger: #ffb4ab;
   }
 }
 
@@ -346,8 +349,7 @@ button:disabled {
   background: var(--surface);
 }
 .notice-success { color: var(--text); }
-.notice-error { color: #a52727; }
-:root[data-theme='dark'] .notice-error { color: #ffb4ab; }
+.notice-error { color: var(--danger); }
 .empty-state { margin-block: var(--space-3); }
 .empty-state h2 { font-size: 1.1rem; }
 .empty-state p { margin-bottom: 0; }
@@ -498,9 +500,5 @@ button:disabled {
 .activity-expense-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: end; gap: var(--space-1); }
 .expense-edit-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .expense-confirm-delete { margin-top: var(--space-2); }
-.expense-delete { color: #9e302a; }
+.expense-delete { color: var(--danger); }
 .expense-delete-primary { background: #a12d28; color: #fff; }
-:root[data-theme='dark'] .expense-delete { color: #ffa29d; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .expense-delete { color: #ffa29d; }
-}

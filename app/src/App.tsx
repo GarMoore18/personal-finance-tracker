@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ActivityPage } from './ActivityPage';
@@ -6,6 +6,7 @@ import { currentMonth } from './transactions';
 import { HomePage } from './HomePage';
 import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
+import { changeAppearance, initialTheme, themes } from './appearance';
 
 const pages = [
   { id: 'home', label: 'Home', icon: '⌂', heading: 'Overview' },
@@ -15,22 +16,10 @@ const pages = [
   { id: 'more', label: 'More', icon: '···', heading: 'Settings' },
 ] as const;
 
-const themes = ['system', 'light', 'dark'] as const;
-type Theme = (typeof themes)[number];
 type Page = (typeof pages)[number];
-const appearanceKey = 'ledger-app:appearance';
 
 function currentPage(): Page {
   return pages.find(({ id }) => location.hash === '#/' + id) ?? pages[0];
-}
-
-function initialTheme(): Theme {
-  try {
-    const preference = localStorage.getItem(appearanceKey);
-    return themes.find((theme) => theme === preference) ?? 'system';
-  } catch {
-    return 'system';
-  }
 }
 
 export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseClient }) {
@@ -63,19 +52,6 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
       previousPage.current = page;
     }
   }, [page]);
-
-  useLayoutEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  function changeTheme(nextTheme: Theme) {
-    setTheme(nextTheme);
-    try {
-      localStorage.setItem(appearanceKey, nextTheme);
-    } catch {
-      // Apply the preference for this page when storage is unavailable.
-    }
-  }
 
   return (
     <div className="shell">
@@ -127,7 +103,10 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
                     name="appearance"
                     value={option}
                     checked={theme === option}
-                    onChange={() => changeTheme(option)}
+                    onChange={() => {
+                      changeAppearance(option);
+                      setTheme(option);
+                    }}
                   />
                   {option}
                 </label>
