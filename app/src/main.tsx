@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthGate } from './AuthGate';
 import { initialTheme } from './appearance';
+import '@fontsource-variable/geist';
 import './styles.css';
 
 document.documentElement.dataset.theme = initialTheme();

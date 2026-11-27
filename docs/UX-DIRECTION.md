@@ -1,6 +1,6 @@
 # Ledger UX direction
 
-Keep the prototype's amount-first flow and familiar bottom navigation. Use cool neutral surfaces, ink text, and a restrained indigo accent, system typography, and tabular currency figures. Give section headings and primary figures more weight than card borders. Use words and icons to distinguish status alongside color. Pair each destination with a symbol and a text label. Keep Home, Activity, Add, Accounts, and More in the same order on phone and desktop. Home leads with one spending figure, then recent expenses and net worth on phones. Desktop places net worth alongside spending and activity.
+Keep the amount-first flow and familiar bottom navigation. Use cool neutral surfaces, plum ink, an indigo accent, self-hosted Geist, and tabular currency figures. Give section headings and primary figures more weight than card borders. Use words and icons to distinguish status alongside color. Pair each destination with a symbol and a text label. Keep Home, Activity, Add, Accounts, and More in the same order on phone and desktop. Home leads with monthly spending and net worth, followed by recent expenses. Desktop places the two amounts side by side. The spending card uses actual daily totals for its chart, and a month with no expenses displays zero.
 
 The [mobile visual sample](UX-MOBILE-MOCKUP.svg) applies this direction to Home and Add using synthetic data. It is a representative design mockup; issue #10 will define the implementation tokens.
 
