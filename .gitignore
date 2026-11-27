@@ -18,4 +18,4 @@ transactions-*.csv
 # Tooling
 node_modules/
 .netlify/
-.baton/session-state.md
+.agent-session.md
