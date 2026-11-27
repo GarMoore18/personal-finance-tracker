@@ -351,6 +351,7 @@ def test_manual_expense(url, browser, viewport):
     spending_requests, balance_requests = [], []
     export_offsets = []
     duplicate_offsets = []
+    report_offsets, report_balance_reads = [], []
     category_requests = 0
     overview_ready = False
     bulk_month = False
@@ -390,6 +391,21 @@ def test_manual_expense(url, browser, viewport):
                 route.fulfill(headers=headers, json=categories[category_id])
         elif path == '/rest/v1/transactions' and request.method == 'GET':
             query = parse_qs(urlsplit(request.url).query)
+            if query.get('select') == ['occurred_on,amount,category_id,categories(name)']:
+                assert query['occurred_on'] == [f'gte.{report_start}-01', f'lt.{next_month}-01']
+                assert query['order'] == ['occurred_on.desc,id.asc']
+                offset, limit = int(query['offset'][0]), int(query['limit'][0])
+                report_offsets.append(offset)
+                if len(report_offsets) == 1:
+                    route.fulfill(status=400, headers=headers, json={'message': 'Synthetic report failure'})
+                    return
+                rows = [{'occurred_on': today, 'amount': 0.05, 'category_id': category_id,
+                         'categories': {'name': 'Food at home'}}] * 200
+                rows += [{'occurred_on': today, 'amount': 3.25, 'category_id': 'custom', 'categories': {'name': 'Cycling'}},
+                         {'occurred_on': previous_month + '-01', 'amount': 1.25, 'category_id': 'custom',
+                          'categories': {'name': 'Cycling'}}]
+                route.fulfill(headers=headers, json=rows[offset:offset + limit])
+                return
             if query.get('select') == ['occurred_on,amount,description']:
                 if query['occurred_on'] == ['in.(2024-02-28)']:
                     route.fulfill(headers=headers, json=[])
@@ -450,6 +466,14 @@ def test_manual_expense(url, browser, viewport):
             route.fulfill(headers=headers, json=[{'net_worth': '-25.05'}] if overview_ready else [])
         elif path == '/rest/v1/accounts':
             query = parse_qs(urlsplit(request.url).query)
+            if query.get('select') == ['id,name,kind,archived_at']:
+                report_balance_reads.append('accounts')
+                route.fulfill(headers=headers, json=[
+                    {'id': 'bank', 'name': 'Checking', 'kind': 'asset', 'archived_at': None},
+                    {'id': 'card', 'name': 'Credit card', 'kind': 'liability', 'archived_at': None},
+                    {'id': 'old', 'name': 'Old savings', 'kind': 'asset', 'archived_at': today + 'T00:00:00Z'},
+                ])
+                return
             if 'account_groups(name)' in query.get('select', [''])[0]:
                 route.fulfill(headers=headers, json=[{'name': '=1+1', 'kind': 'liability',
                     'current_balance': '-75.95', 'balance_observed_on': '2024-02-29',
@@ -458,6 +482,18 @@ def test_manual_expense(url, browser, viewport):
             balance_requests.append(path)
             route.fulfill(headers=headers, json=[{'id': '6', 'name': 'Checking',
                                                   'current_balance': 75.95}] if overview_ready else [])
+        elif path == '/rest/v1/balance_snapshots':
+            query = parse_qs(urlsplit(request.url).query)
+            assert query['select'] == ['account_id,month,balance']
+            assert query['order'] == ['account_id.asc,month.asc']
+            assert query['month'] == [f'lte.{today[:7]}-01']
+            report_balance_reads.append('snapshots')
+            route.fulfill(headers=headers, json=[
+                {'account_id': 'bank', 'month': baseline + '-01', 'balance': '100.10'},
+                {'account_id': 'bank', 'month': today[:7] + '-01', 'balance': '110.10'},
+                {'account_id': 'card', 'month': previous_month + '-01', 'balance': '150.10'},
+                {'account_id': 'old', 'month': previous_month + '-01', 'balance': '25.00'},
+            ])
         elif path == '/rest/v1/transactions' and request.method in ('PATCH', 'DELETE'):
             assert parse_qs(urlsplit(request.url).query)['id'] == ['eq.1']
             changes.append(request.method)
@@ -904,6 +940,51 @@ def test_manual_expense(url, browser, viewport):
         assert all(expected in matching_xml for expected in (b'=1+1', b'2024-02-29', b'Banking', b'archived'))
     expect(exports.get_by_role('status')).to_have_text('Download ready.')
     print('PASS CSV export pagination, quoting and formula safety, and Excel balance values')
+
+    def shift_month(offset):
+        year, month = map(int, today[:7].split('-'))
+        shifted_year, shifted_month = divmod(year * 12 + month - 1 + offset, 12)
+        return f'{shifted_year:04d}-{shifted_month + 1:02d}'
+
+    previous_month, report_start, next_month, baseline = (shift_month(offset) for offset in (-1, -11, 1, -13))
+    navigation.get_by_role('link', name='More').click()
+    page.get_by_role('link', name='Reports', exact=True).click()
+    reports = page.get_by_role('region', name='Financial reports')
+    expect(reports.get_by_role('alert')).to_contain_text('Could not load the report.')
+    reports.get_by_role('button', name='Retry').click()
+    category_report = reports.get_by_role('region', name='Spending by category')
+    expect(category_report.get_by_text('$13.25', exact=True)).to_be_visible()
+    category_rows = category_report.get_by_role('listitem')
+    expect(category_rows.nth(0)).to_have_text('Food at home$10.00')
+    expect(category_rows.nth(1)).to_have_text('Cycling$3.25')
+    category_report.get_by_label('Month').select_option(previous_month)
+    expect(category_report.get_by_text('$1.25', exact=True).first).to_be_visible()
+    category_report.get_by_label('Month').select_option(report_start)
+    expect(category_report.get_by_text('No expenses for this month.')).to_be_visible()
+    trend = reports.get_by_role('list', name='Monthly spending in USD')
+    expect(trend.get_by_role('listitem')).to_have_count(12)
+    expect(trend.get_by_role('listitem').last).to_contain_text('$13.25')
+    assert report_offsets == [0, 0, 200] and not report_balance_reads
+    reports.get_by_role('button', name='Balances').click()
+    history = reports.get_by_role('region', name='Account balance history')
+    history_rows = history.get_by_role('listitem')
+    expect(history_rows.last).to_contain_text('$110.10')
+    expect(history_rows.nth(10)).to_contain_text('—')
+    worth = reports.get_by_role('list', name='Monthly net worth in USD')
+    expect(worth.get_by_role('listitem').first).to_contain_text('$100.10')
+    expect(worth.get_by_role('listitem').nth(10)).to_contain_text('-$25.00')
+    expect(worth.get_by_role('listitem').last).to_contain_text('-$40.00')
+    account_picker = history.get_by_role('combobox', name='Account', exact=True)
+    account_picker.select_option('old')
+    expect(history_rows.nth(10)).to_contain_text('$25.00')
+    assert_layout(page, account_picker)
+    reports.get_by_role('button', name='Spending').click()
+    expect(category_report.get_by_text('No expenses for this month.')).to_be_visible()
+    reports.get_by_role('button', name='Balances').click()
+    expect(account_picker).to_have_value('old')
+    expect(worth.get_by_role('listitem').last).to_contain_text('-$40.00')
+    assert report_offsets == [0, 0, 200] and sorted(report_balance_reads) == ['accounts', 'snapshots']
+    print('PASS reports across expense pages, local filters, sparse balances, archive cutoff, and read reuse')
     page.close()
 
 
