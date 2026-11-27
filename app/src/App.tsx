@@ -8,6 +8,7 @@ import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
 import { CategorySettings } from './CategorySettings';
 import { CsvImportPage } from './CsvImportPage';
+import { DataExportPage } from './DataExportPage';
 import { changeAppearance, initialTheme, themes } from './appearance';
 import { dashboardWidgets, loadDashboardPreferences, saveDashboardPreferences } from './dashboardPreferences';
 
@@ -21,11 +22,13 @@ const pages = [
 
 const categoriesPage = { id: 'categories', heading: 'Categories' } as const;
 const importPage = { id: 'import', heading: 'Import expenses' } as const;
-type Page = (typeof pages)[number] | typeof categoriesPage | typeof importPage;
+const exportPage = { id: 'export', heading: 'Export data' } as const;
+type Page = (typeof pages)[number] | typeof categoriesPage | typeof importPage | typeof exportPage;
 
 function currentPage(): Page {
   if (location.hash === '#/categories') return categoriesPage;
   if (location.hash === '#/import') return importPage;
+  if (location.hash === '#/export') return exportPage;
   return pages.find(({ id }) => location.hash === '#/' + id) ?? pages[0];
 }
 
@@ -105,6 +108,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
         {page.id === 'accounts' && <AccountsPage client={client} />}
         {page.id === 'categories' && <CategorySettings client={client} />}
         {page.id === 'import' && <CsvImportPage client={client} />}
+        {page.id === 'export' && <DataExportPage client={client} />}
         {page.id === 'more' && (
           <>
             <fieldset className="panel appearance">
@@ -141,6 +145,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
             <div className="settings-links">
               <a className="action" href="#/categories">Manage categories</a>
               <a className="action" href="#/import">Import CSV</a>
+              <a className="action" href="#/export">Export data</a>
             </div>
             {signOut}
           </>

@@ -21,6 +21,8 @@ Under **More → Manage categories**, create a category or edit its name, color,
 
 Under **More → Import CSV**, choose a UTF-8, comma-separated file with a header row. Match date, amount, description, category, and optional notes, then review and confirm the import. Use ISO dates (`YYYY-MM-DD`), positive USD amounts, and existing category names. A malformed row blocks the batch until you correct the file or mapping. Retry a failed or unconfirmed save from the same review to reuse the row IDs.
 
+Under **More → Export data**, download all expenses or account balances as CSV or Excel. Accounts include the balance observation date, group, and archive status. Downloaded values use USD, and dates use ISO format (`YYYY-MM-DD`). CSV adds an apostrophe to formula-like text to prevent spreadsheet execution. Excel preserves that text in string cells.
+
 Expense validation moves focus to the field that needs attention. When an expense or account edit cannot be saved, the form keeps the values you entered. A save confirmation appears only after the write succeeds.
 
 In Activity, select a month and use **Search descriptions** to find expenses by any part of their description. Matching ignores capitalization and surrounding spaces. Day totals reflect the visible expenses. **Clear search** removes the description query.

@@ -370,6 +370,8 @@ button:disabled {
 .csv-rows li > small { color: var(--muted); }
 .csv-notes { white-space: pre-wrap; }
 .csv-review > .form-actions { margin-bottom: var(--space-2); }
+.export-panel { max-width: 32rem; }
+.export-form { margin: 0; padding: 0; border: 0; }
 .category-settings { max-width: 38rem; }
 .category-settings form { margin-block: var(--space-2); }
 .category-settings fieldset { margin: 0; padding: 0; border: 0; }

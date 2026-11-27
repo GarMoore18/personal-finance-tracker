@@ -1,14 +1,18 @@
 """Browser regression test for Ledger's sign-in gate with a synthetic Supabase API."""
 import base64
+from csv import DictReader
 import json
 import os
 import re
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from io import StringIO
 from pathlib import Path
 from threading import Thread
 from urllib.parse import parse_qs, urlsplit
+from xml.etree import ElementTree
+from zipfile import ZipFile
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -313,6 +317,7 @@ def test_manual_expense(url, browser, viewport):
     saved, attempts, changes = [], [], []
     import_attempts, imported = [], {}
     spending_requests, balance_requests = [], []
+    export_offsets = []
     category_requests = 0
     overview_ready = False
     bulk_month = False
@@ -352,6 +357,14 @@ def test_manual_expense(url, browser, viewport):
                 route.fulfill(headers=headers, json=categories[category_id])
         elif path == '/rest/v1/transactions' and request.method == 'GET':
             query = parse_qs(urlsplit(request.url).query)
+            if query.get('select') == ['occurred_on,amount,description,notes,categories(name)']:
+                offset = int(query.get('offset', [0])[0])
+                limit = int(query.get('limit', [200])[0])
+                export_offsets.append(offset)
+                data = [{'occurred_on': '2024-02-29', 'amount': 12.30, 'description': '=1+1',
+                         'notes': 'With "quotes", and\nnew lines', 'categories': {'name': 'Groceries'}}] * 201
+                route.fulfill(headers=headers, json=data[offset:offset + limit])
+                return
             dates = query.get('occurred_on', [])
             rows = []
             if overview_ready:
@@ -387,6 +400,12 @@ def test_manual_expense(url, browser, viewport):
             balance_requests.append(path)
             route.fulfill(headers=headers, json=[{'net_worth': '-25.05'}] if overview_ready else [])
         elif path == '/rest/v1/accounts':
+            query = parse_qs(urlsplit(request.url).query)
+            if 'account_groups(name)' in query.get('select', [''])[0]:
+                route.fulfill(headers=headers, json=[{'name': '=1+1', 'kind': 'liability',
+                    'current_balance': '-75.95', 'balance_observed_on': '2024-02-29',
+                    'archived_at': '2024-03-01T00:00:00Z', 'account_groups': {'name': 'Banking'}}])
+                return
             balance_requests.append(path)
             route.fulfill(headers=headers, json=[{'id': '6', 'name': 'Checking',
                                                   'current_balance': 75.95}] if overview_ready else [])
@@ -736,6 +755,37 @@ def test_manual_expense(url, browser, viewport):
                      'description': 'Bread, fresh', 'category_id': category_id, 'notes': 'First line\nSecond line'}
     assert second['category_id'] == 'custom' and second['amount'] == '0.75' and second['notes'] is None
     print('PASS CSV mapping, malformed row review, explicit import, and safe retry')
+
+    navigation.get_by_role('link', name='More').click()
+    page.get_by_role('link', name='Export data').click()
+    exports = page.get_by_role('region', name='Download Ledger data')
+    download_button = exports.get_by_role('button', name='Download', exact=True)
+    assert_layout(page, download_button)
+    assert not export_offsets
+    with page.expect_download() as expense_download:
+        download_button.click()
+    expense_file = expense_download.value
+    assert expense_file.suggested_filename == f'ledger-expenses-{today}.csv'
+    rows = list(DictReader(StringIO(Path(expense_file.path()).read_text(encoding='utf-8-sig'))))
+    assert export_offsets == [0, 200] and len(rows) == 201
+    assert rows[0] == {'date': '2024-02-29', 'amount': '12.30', 'description': "'=1+1",
+                       'category': 'Groceries', 'notes': 'With "quotes", and\nnew lines'}
+
+    exports.get_by_role('combobox', name='Data', exact=True).select_option('accounts')
+    exports.get_by_role('combobox', name='File format', exact=True).select_option('xlsx')
+    with page.expect_download() as account_download:
+        download_button.click()
+    account_file = account_download.value
+    assert account_file.suggested_filename == f'ledger-accounts-{today}.xlsx'
+    with ZipFile(account_file.path()) as workbook:
+        ns = {'sheet': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+        cells = ElementTree.fromstring(workbook.read('xl/worksheets/sheet1.xml'))
+        assert cells.find(".//sheet:c[@r='C2']/sheet:v", ns).text == '-75.95'
+        assert cells.find('.//sheet:f', ns) is None
+        matching_xml = b''.join(workbook.read(path) for path in workbook.namelist() if path.endswith('.xml'))
+        assert all(expected in matching_xml for expected in (b'=1+1', b'2024-02-29', b'Banking', b'archived'))
+    expect(exports.get_by_role('status')).to_have_text('Download ready.')
+    print('PASS CSV export pagination, quoting and formula safety, and Excel balance values')
     page.close()
 
 
