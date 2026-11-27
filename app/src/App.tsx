@@ -45,6 +45,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
   const expenseOrigin = useRef<Page>(pages[0]);
   const main = useRef<HTMLElement>(null);
   const previousPage = useRef(page);
+  const navigationPage = pages.some(({ id }) => id === page.id) ? page.id : 'more';
 
   useEffect(() => {
     function navigate() {
@@ -84,7 +85,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
               key={id}
               href={'#/' + id}
               aria-label={id === 'add' ? 'Add an expense' : undefined}
-              aria-current={page.id === id ? 'page' : undefined}
+              aria-current={navigationPage === id ? (page.id === id ? 'page' : 'location') : undefined}
               className={id === 'add' ? 'nav-add' : undefined}
             >
               <span className="nav-icon" aria-hidden="true">{icon}</span>
