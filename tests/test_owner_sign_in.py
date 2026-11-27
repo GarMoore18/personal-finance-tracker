@@ -471,7 +471,7 @@ def test_manual_expense(url, browser, viewport):
                 route.fulfill(headers=headers, json=[
                     {'id': 'bank', 'name': 'Checking', 'kind': 'asset', 'archived_at': None},
                     {'id': 'card', 'name': 'Credit card', 'kind': 'liability', 'archived_at': None},
-                    {'id': 'old', 'name': 'Old savings', 'kind': 'asset', 'archived_at': today + 'T00:00:00Z'},
+                    {'id': 'old', 'name': '=Old savings', 'kind': 'asset', 'archived_at': today + 'T00:00:00Z'},
                 ])
                 return
             if 'account_groups(name)' in query.get('select', [''])[0]:
@@ -964,6 +964,30 @@ def test_manual_expense(url, browser, viewport):
     trend = reports.get_by_role('list', name='Monthly spending in USD')
     expect(trend.get_by_role('listitem')).to_have_count(12)
     expect(trend.get_by_role('listitem').last).to_contain_text('$13.25')
+    def download_report(name):
+        with page.expect_download() as result:
+            reports.get_by_role('button', name=f'Download CSV for {name}', exact=True).click()
+        download = result.value
+        data = Path(download.path()).read_text(encoding='utf-8-sig')
+        rows = list(DictReader(StringIO(data)))
+        assert all(row['report'] == name and row['currency'] == 'USD' for row in rows)
+        return download.suggested_filename, rows
+
+    category_report.get_by_label('Month').select_option(today[:7])
+    filename, rows = download_report('spending by category')
+    assert filename == f'ledger-spending-by-category-{today[:7]}.csv'
+    assert [(row['label'], row['row_type'], row['amount']) for row in rows] == [
+        ('Food at home', 'detail', '10.00'), ('Cycling', 'detail', '3.25'), ('Total spending', 'total', '13.25')]
+    assert all(row['period'] == today[:7] for row in rows)
+    category_report.get_by_label('Month').select_option(previous_month)
+    _, rows = download_report('spending by category')
+    assert rows[-1]['period'] == previous_month and rows[-1]['amount'] == '1.25'
+    category_report.get_by_label('Month').select_option(report_start)
+    assert_layout(page, reports.get_by_role('button', name='Download CSV for spending trend'))
+    filename, rows = download_report('spending trend')
+    assert filename == f'ledger-spending-trend-{report_start}-to-{today[:7]}.csv'
+    assert len(rows) == 12 and rows[0]['amount'] == '0.00'
+    assert rows[-1]['period'] == today[:7] and rows[-1]['amount'] == '13.25'
     assert report_offsets == [0, 0, 200] and not report_balance_reads
     reports.get_by_role('button', name='Balances').click()
     history = reports.get_by_role('region', name='Account balance history')
@@ -978,13 +1002,20 @@ def test_manual_expense(url, browser, viewport):
     account_picker.select_option('old')
     expect(history_rows.nth(10)).to_contain_text('$25.00')
     assert_layout(page, account_picker)
+    _, rows = download_report('account balance history')
+    assert len(rows) == 12 and all(row['label'] == "'=Old savings" for row in rows)
+    assert rows[-2]['period'] == previous_month and rows[-2]['amount'] == '25.00'
+    assert rows[-1]['amount'] == ''
+    _, rows = download_report('net worth history')
+    assert len(rows) == 12 and rows[-2]['amount'] == '-25.00' and rows[-1]['amount'] == '-40.00'
+
     reports.get_by_role('button', name='Spending').click()
     expect(category_report.get_by_text('No expenses for this month.')).to_be_visible()
     reports.get_by_role('button', name='Balances').click()
     expect(account_picker).to_have_value('old')
     expect(worth.get_by_role('listitem').last).to_contain_text('-$40.00')
     assert report_offsets == [0, 0, 200] and sorted(report_balance_reads) == ['accounts', 'snapshots']
-    print('PASS reports across expense pages, local filters, sparse balances, archive cutoff, and read reuse')
+    print('PASS report charts and CSV totals, selected periods, missing balances, and read reuse')
     page.close()
 
 
