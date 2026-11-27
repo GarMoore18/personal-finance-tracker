@@ -19,7 +19,7 @@ Under **More → Dashboard widgets**, choose which cards appear on Home. All car
 
 Under **More → Manage categories**, create a category or edit its name, color, and icon. Renaming a category updates its label on existing expenses and keeps those expenses linked to it.
 
-Under **More → Import CSV**, choose a UTF-8, comma-separated file with a header row. Match date, amount, description, category, and optional notes, then review and confirm the import. Use ISO dates (`YYYY-MM-DD`), positive USD amounts, and existing category names. A malformed row blocks the batch until you correct the file or mapping. Retry a failed or unconfirmed save from the same review to reuse the row IDs.
+Under **More → Import CSV**, choose a UTF-8, comma-separated file with a header row. Match date, amount, description, category, and optional notes. Use **Edit** to correct a row or choose its category, and **Remove** to leave out a row. You can restore removed rows before confirming. Use ISO dates (`YYYY-MM-DD`) and positive USD amounts. Column changes apply to rows you haven't edited. Any remaining invalid rows block confirmation. Retry an unconfirmed save from the same review to reuse the row IDs.
 
 Under **More → Export data**, download all expenses or account balances as CSV or Excel. Accounts include the balance observation date, group, and archive status. Downloaded values use USD, and dates use ISO format (`YYYY-MM-DD`). CSV adds an apostrophe to formula-like text to prevent spreadsheet execution. Excel preserves that text in string cells.
 

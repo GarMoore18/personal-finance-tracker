@@ -13,7 +13,8 @@ export type Mapping = Record<Field, number>;
 export type Category = { id: string; name: string };
 export type CsvSource = { name: string; header: string[]; rows: { id: string; cells: string[] }[] };
 type Expense = { id: string; occurred_on: string; amount: string; description: string; category_id: string; notes: string | null };
-type ReviewedRow = { number: number; date: string; amount: string; description: string; category: string }
+export type ReviewValues = { date: string; amount: string; description: string; categoryId: string; notes: string };
+export type ReviewedRow = ReviewValues & { id: string; number: number; category: string }
   & ({ expense: Expense; problem?: never } | { expense?: never; problem: string });
 
 export async function readCsv(file: File): Promise<CsvSource | string> {
@@ -45,33 +46,40 @@ export function mappingProblem(mapping: Mapping) {
   return '';
 }
 
-export function reviewCsv(source: CsvSource, mapping: Mapping, categories: Category[]): ReviewedRow[] {
+export function reviewCsv(
+  source: CsvSource, mapping: Mapping, categories: Category[], corrections: ReadonlyMap<string, ReviewValues>,
+): ReviewedRow[] {
   const categoryByName = new Map<string, string | null>();
+  const categoryById = new Map<string, string>();
   for (const category of categories) {
     const key = category.name.trim().toLowerCase();
     categoryByName.set(key, categoryByName.has(key) ? null : category.id);
+    categoryById.set(category.id, category.name);
   }
   return source.rows.map(({ id, cells }, index) => {
-    const date = cells[mapping.date]?.trim() ?? '';
-    const amount = cells[mapping.amount]?.trim() ?? '';
-    const description = cells[mapping.description]?.trim() ?? '';
-    const category = cells[mapping.category]?.trim() ?? '';
+    const corrected = corrections.get(id);
+    const date = (corrected?.date ?? cells[mapping.date] ?? '').trim();
+    const amount = (corrected?.amount ?? cells[mapping.amount] ?? '').trim();
+    const description = (corrected?.description ?? cells[mapping.description] ?? '').trim();
+    const notes = (corrected?.notes ?? cells[mapping.notes] ?? '').trim();
+    const originalCategory = cells[mapping.category]?.trim() ?? '';
+    const categoryId = corrected ? corrected.categoryId : categoryByName.get(originalCategory.toLowerCase());
+    const category = corrected ? categoryById.get(corrected.categoryId) ?? '' : originalCategory;
     const normalized = normalizeUsdAmount(amount.startsWith('.') ? '0' + amount : amount);
-    const categoryId = categoryByName.get(category.toLowerCase());
-    const row = { number: index + 2, date, amount, description, category };
+    const row = { id, number: index + 2, date, amount, description, category, categoryId: categoryId ?? '', notes };
 
-    if (cells.length !== source.header.length) return { ...row, problem: 'The number of columns differs from the header.' };
+    if (!corrected && cells.length !== source.header.length) return { ...row, problem: 'The number of columns differs from the header.' };
     if (!validDate(date)) return { ...row, problem: 'Use a valid date in YYYY-MM-DD format.' };
     if (!normalized || normalized.startsWith('-') || normalized === '0.00') {
       return { ...row, problem: 'Use a positive USD amount with up to two decimal places.' };
     }
     if (!description) return { ...row, problem: 'Enter an expense description.' };
-    if (!categoryId) {
-      return { ...row, problem: categoryId === null ? 'More than one category has this name.' : 'Use the name of an existing category.' };
+    if (!categoryId || !categoryById.has(categoryId)) {
+      return { ...row, problem: categoryId === null ? 'More than one category has this name. Choose one while editing.' : 'Choose an existing category.' };
     }
     return {
       ...row,
-      expense: { id, occurred_on: date, amount: normalized, description, category_id: categoryId, notes: cells[mapping.notes]?.trim() || null },
+      expense: { id, occurred_on: date, amount: normalized, description, category_id: categoryId, notes: notes || null },
     };
   });
 }

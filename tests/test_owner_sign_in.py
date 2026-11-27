@@ -738,7 +738,27 @@ def test_manual_expense(url, browser, viewport):
     expect(csv.get_by_text('Bread, fresh')).to_have_count(0)
     assert not import_attempts
 
-    upload(header + valid + '2024-02-28,.75,Train,Cycling,\r\n')
+    edit_row = csv.get_by_role('button', name='Edit row 3')
+    edit_row.click()
+    editor = csv.get_by_role('form', name='Edit row 3')
+    expect(editor.get_by_label('Date')).to_be_focused()
+    editor.get_by_label('Date').fill('2024-02-28')
+    editor.get_by_role('button', name='Cancel').click()
+    expect(edit_row).to_be_focused()
+    expect(csv.get_by_text('Use a valid date in YYYY-MM-DD format.')).to_be_visible()
+    edit_row.click()
+    editor.get_by_label('Date').fill('2024-02-28')
+    editor.get_by_label('Amount (USD)').fill('.75')
+    editor.get_by_label('Description').fill('Train')
+    editor.get_by_label('Category').select_option('custom')
+    editor.get_by_role('button', name='Apply changes').click()
+    expect(edit_row).to_be_focused()
+    remove_row = csv.get_by_role('button', name='Remove row 4')
+    remove_row.click()
+    expect(csv.get_by_role('button', name='Import 2 expenses')).to_be_enabled()
+    csv.get_by_role('button', name='Restore removed rows').click()
+    expect(csv.get_by_role('button', name='Import 3 expenses')).to_be_disabled()
+    remove_row.click()
     expect(csv.get_by_text('Bread, fresh')).to_be_visible()
     expect(csv.get_by_text('Train', exact=True)).to_be_visible()
     assert_layout(page, csv.get_by_role('button', name='Import 2 expenses'))
@@ -748,13 +768,13 @@ def test_manual_expense(url, browser, viewport):
     expect(file_picker).to_be_disabled()
     expect(csv.get_by_text('Bread, fresh')).to_be_visible()
     csv.get_by_role('button', name='Retry import').click()
-    expect(csv.get_by_role('status')).to_contain_text('Imported 2 expenses.')
+    expect(csv.get_by_role('status').filter(has_text='Imported 2 expenses.')).to_be_visible()
     assert len(imported) == 2 and import_attempts[0] == import_attempts[1]
     first, second = import_attempts[0]
     assert first == {'id': first['id'], 'occurred_on': '2024-02-29', 'amount': '10.05',
                      'description': 'Bread, fresh', 'category_id': category_id, 'notes': 'First line\nSecond line'}
     assert second['category_id'] == 'custom' and second['amount'] == '0.75' and second['notes'] is None
-    print('PASS CSV mapping, malformed row review, explicit import, and safe retry')
+    print('PASS CSV mapping, row correction and removal, explicit import, and safe retry')
 
     navigation.get_by_role('link', name='More').click()
     page.get_by_role('link', name='Export data').click()
