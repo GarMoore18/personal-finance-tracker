@@ -27,6 +27,8 @@ Ledger flags possible duplicates with the same date, amount, and description, ig
 
 Under **More → Export data**, download all expenses or account balances as CSV or Excel. Accounts include the balance observation date, group, and archive status. Downloaded values use USD, and dates use ISO format (`YYYY-MM-DD`). CSV adds an apostrophe to formula-like text to prevent spreadsheet execution. Excel preserves that text in string cells.
 
+Under **More → Reports**, compare USD spending by category and monthly totals over the last 12 months. The Balances view shows each account’s recorded monthly observations and net worth across accounts. Net worth carries each account’s last recorded balance forward, includes accounts from their first observation, and excludes them from their archive month onward. Archived account observations are still available in the account selector.
+
 Expense validation moves focus to the field that needs attention. When an expense or account edit cannot be saved, the form keeps the values you entered. A save confirmation appears only after the write succeeds.
 
 In Activity, select a month and use **Search descriptions** to find expenses by any part of their description. Matching ignores capitalization and surrounding spaces. Day totals reflect the visible expenses. **Clear search** removes the description query.
