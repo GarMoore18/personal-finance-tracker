@@ -299,9 +299,9 @@ def test_manual_expense(url, browser):
                     *[{**expense, 'id': '1', 'amount': float(expense['amount']),
                        'categories': {'name': 'Groceries'}} for expense in saved],
                     {'id': '2', 'occurred_on': '2024-02-29', 'amount': 0.1,
-                     'description': 'Parking meter', 'categories': {'name': 'Transport'}},
+                     'description': 'Parking meter', 'category_id': 'transport', 'categories': {'name': 'Transport'}},
                     {'id': '3', 'occurred_on': '2024-02-28', 'amount': 8,
-                     'description': 'Sandwich', 'categories': {'name': 'Dining'}},
+                     'description': 'Sandwich', 'category_id': 'dining', 'categories': {'name': 'Dining'}},
                 ]
             route.fulfill(headers=headers, json=rows)
         elif path == '/rest/v1/current_net_worth':
@@ -400,6 +400,39 @@ def test_manual_expense(url, browser):
     expect(search).to_have_value('')
     expect(search).to_be_focused()
     expect(dates).to_have_count(2)
+
+    page.get_by_text('Filters', exact=True).click()
+    filters = page.get_by_role('group', name='Filter expenses in the selected month')
+    category = filters.get_by_label('Category')
+    category.select_option(label='Transport')
+    expect(page.get_by_text('Parking meter')).to_be_visible()
+    expect(page.get_by_text('Market supplies')).to_have_count(0)
+    category.select_option(label='All categories')
+    filters.get_by_label('From date').fill('2024-02-29')
+    expect(page.get_by_text('Sandwich')).to_have_count(0)
+    filters.get_by_role('button', name='Clear dates').click()
+    filters.get_by_label('Minimum amount (USD)').fill('8.00')
+    expect(page.get_by_text('Sandwich')).to_be_visible()
+    expect(page.get_by_text('Parking meter')).to_have_count(0)
+    filters.get_by_label('Maximum amount (USD)').fill('7.99')
+    expect(filters.get_by_role('alert')).to_contain_text('maximum amount')
+    filters.get_by_role('button', name='Clear amounts').click()
+
+    category.select_option(label='Groceries')
+    filters.get_by_label('Through date').fill('2024-02-29')
+    filters.get_by_label('Maximum amount (USD)').fill('12.30')
+    expect(page.get_by_text('Filters (3 active)', exact=True)).to_be_visible()
+    expect(page.get_by_text('Market supplies')).to_be_visible()
+    search.fill('meter')
+    expect(page.get_by_role('status').filter(has_text='No expenses match your filters')).to_be_visible()
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    filters.get_by_role('button', name='Reset filters').click()
+    expect(search).to_have_value('meter')
+    expect(page.get_by_text('Parking meter')).to_be_visible()
+    page.get_by_role('button', name='Clear search').click()
+    page.get_by_text('Filters', exact=True).click()
+    print('PASS independent and combined Activity filters, invalid bounds, resets, and mobile overflow')
+
     earlier.locator('summary').click()
     print('PASS description search, no matches, and keyboard focus after clearing')
 

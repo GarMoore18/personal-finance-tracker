@@ -313,7 +313,8 @@ button:disabled {
 .account-edit-form { flex: 1 1 100%; }
 .account-form label, .group-form label, .expense-form label { display: grid; gap: 0.35rem; font-weight: 650; }
 .account-form input, .account-form select, .group-form input,
-.expense-form input, .expense-form select, .expense-form textarea, .activity-toolbar input {
+.expense-form input, .expense-form select, .expense-form textarea, .activity-toolbar input,
+.activity-filters input, .activity-filters select {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -388,6 +389,21 @@ button:disabled {
 .activity-toolbar label { display: grid; gap: 0.35rem; font-weight: 650; min-width: 0; }
 .activity-search label { flex: 1 1 12rem; }
 .activity-search button { width: auto; }
+.activity-filters { margin-bottom: var(--space-2); }
+.activity-filters summary { min-height: 44px; padding-block: var(--space-2); cursor: pointer; }
+.activity-filters fieldset {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--space-1);
+}
+.activity-filters label { display: grid; gap: 0.35rem; min-width: 0; font-weight: 650; }
+.activity-filter-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: var(--space-2); }
+.activity-filters button { width: auto; justify-self: start; }
+.activity-filters p { margin: 0; }
 .activity-day { border-top: 1px solid var(--border); }
 .activity-day summary { padding: var(--space-2) 0; min-height: 44px; cursor: pointer; }
 .activity-day summary strong { float: right; margin-left: var(--space-1); }
