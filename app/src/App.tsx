@@ -7,6 +7,7 @@ import { HomePage } from './HomePage';
 import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
 import { changeAppearance, initialTheme, themes } from './appearance';
+import { dashboardWidgets, loadDashboardPreferences, saveDashboardPreferences } from './dashboardPreferences';
 
 const pages = [
   { id: 'home', label: 'Home', icon: '⌂', heading: 'Overview' },
@@ -25,6 +26,7 @@ function currentPage(): Page {
 export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseClient }) {
   const [page, setPage] = useState(currentPage);
   const [theme, setTheme] = useState(initialTheme);
+  const [dashboard, setDashboard] = useState(loadDashboardPreferences);
   const [activityMonth, setActivityMonth] = useState(currentMonth);
   const [expenseSaved, setExpenseSaved] = useState(false);
   const expenseOrigin = useRef<Page>(pages[0]);
@@ -81,7 +83,8 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
       <main id="main-content" ref={main} tabIndex={-1}>
         {page.id !== 'home' && <h1>{page.heading}</h1>}
         <div role="status">{expenseSaved && <p className="expense-confirmation">Expense saved.</p>}</div>
-        {page.id === 'home' && <HomePage client={client} onCurrentActivity={() => setActivityMonth(currentMonth())} />}
+        {page.id === 'home' && <HomePage client={client} widgets={dashboard}
+          onCurrentActivity={() => setActivityMonth(currentMonth())} />}
         {page.id === 'activity' && (
           <ActivityPage client={client} month={activityMonth} onMonthChange={setActivityMonth} />
         )}
@@ -109,6 +112,19 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
                     }}
                   />
                   {option}
+                </label>
+              ))}
+            </fieldset>
+            <fieldset className="panel appearance">
+              <legend>Dashboard widgets</legend>
+              {dashboardWidgets.map(({ id, label }) => (
+                <label key={id}>
+                  <input type="checkbox" checked={dashboard[id]} onChange={(event) => {
+                    const next = { ...dashboard, [id]: event.currentTarget.checked };
+                    setDashboard(next);
+                    saveDashboardPreferences(next);
+                  }} />
+                  {label}
                 </label>
               ))}
             </fieldset>
