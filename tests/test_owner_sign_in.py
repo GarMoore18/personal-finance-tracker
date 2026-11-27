@@ -22,14 +22,28 @@ USER = {
     'user_metadata': {},
 }
 PASSWORD = 'local-fixture-password'
+VIEWPORTS = (
+    ('compact phone', {'width': 320, 'height': 720}),
+    ('phone', {'width': 390, 'height': 844}),
+    ('large phone', {'width': 430, 'height': 932}),
+    ('desktop', {'width': 1280, 'height': 900}),
+)
 
 
 def encode(data):
     return base64.urlsafe_b64encode(json.dumps(data).encode()).decode().rstrip('=')
 
 
-def test_sign_in(url, browser):
-    page = browser.new_page(viewport={'width': 390, 'height': 844}, color_scheme='light')
+def assert_layout(page, *targets):
+    width, scroll_width = page.evaluate('() => [window.innerWidth, document.documentElement.scrollWidth]')
+    assert scroll_width <= width, f'{page.url} overflows its {width}px viewport ({scroll_width}px document)'
+    for target in targets:
+        size = target.bounding_box()
+        assert size and size['width'] >= 44 and size['height'] >= 44, f'{target} has a small hit area: {size}'
+
+
+def test_sign_in(url, browser, viewport):
+    page = browser.new_page(viewport=viewport, color_scheme='light')
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     verification_available = False
@@ -70,6 +84,7 @@ def test_sign_in(url, browser):
     page.route(ORIGIN + '/**', auth_response)
     page.goto(url + '#/accounts')
     expect(page.get_by_role('heading', name='Sign in')).to_be_visible()
+    assert_layout(page, page.get_by_role('button', name='Sign in'))
     expect(page.get_by_role('navigation')).to_have_count(0)
     page.get_by_label('Email').fill(USER['email'])
     page.get_by_label('Password').fill('wrong-password')
@@ -86,6 +101,10 @@ def test_sign_in(url, browser):
     expect(page.get_by_role('heading', name='Accounts', exact=True)).to_be_visible()
     page.reload()
     expect(page.get_by_role('heading', name='Accounts', exact=True)).to_be_visible()
+    page.keyboard.press('Tab')
+    expect(page.get_by_role('link', name='Skip to content')).to_be_focused()
+    page.keyboard.press('Enter')
+    expect(page.get_by_role('main')).to_be_focused()
     page.get_by_role('link', name='More').click()
     page.get_by_role('radio', name='dark').check()
     page.reload()
@@ -101,9 +120,9 @@ def test_sign_in(url, browser):
     print('PASS owner sign-in, verification retry, session reload, and sign-out')
 
 
-def test_account_management(url, browser):
+def test_account_management(url, browser, viewport):
     """Synthetic REST fixture covers UI behavior, not Supabase RLS."""
-    page = browser.new_page(viewport={'width': 390, 'height': 844})
+    page = browser.new_page(viewport=viewport)
     errors, writes, groups, accounts, snapshots = [], [], [], [], []
     next_id = 1
     page.on('pageerror', lambda error: errors.append(str(error)))
@@ -229,9 +248,13 @@ def test_account_management(url, browser):
     assert all(item['balance'] in ('126.75', '130.25') for item in snapshots if item['account_id'] == account['id'])
 
     page.get_by_role('button', name='Add account').click()
-    page.get_by_label('Account name').fill('Cash reserve')
+    long_account_name = 'EmergencyReserveAccountForUpcomingHouseholdExpenses'
+    page.get_by_label('Account name').fill(long_account_name)
+    page.get_by_label('Starting balance').fill('999999999999.99')
     page.get_by_role('button', name='Create account').click()
-    expect(page.get_by_text('Cash reserve')).to_be_visible()
+    expect(page.get_by_text(long_account_name, exact=True)).to_be_visible()
+    expect(page.get_by_text('$999,999,999,999.99')).to_be_visible()
+    assert_layout(page, page.get_by_role('button', name='Edit ' + long_account_name))
     assert accounts[1]['group_id'] is None
 
     page.get_by_role('button', name='Rename').click()
@@ -263,8 +286,8 @@ def test_account_management(url, browser):
     page.close()
 
 
-def test_manual_expense(url, browser):
-    page = browser.new_page(viewport={'width': 390, 'height': 844},
+def test_manual_expense(url, browser, viewport):
+    page = browser.new_page(viewport=viewport,
                             timezone_id='America/Los_Angeles')
     token = '.'.join([encode({'alg': 'HS256', 'typ': 'JWT'}),
                      encode({'sub': USER['id'], 'exp': int(time.time()) + 3600}),
@@ -375,6 +398,7 @@ def test_manual_expense(url, browser):
     page.get_by_label('Date', exact=True).fill('2024-02-29')
     page.get_by_label('Notes (optional)').fill('  Weekly shop  ')
     save = page.get_by_role('button', name='Save expense')
+    assert_layout(page, save, page.get_by_label('Amount (USD)'), page.get_by_label('Category'))
     page.get_by_label('Amount (USD)').fill('12.345')
     save.click()
     expect(page.get_by_role('alert')).to_contain_text('up to two decimal places')
@@ -504,21 +528,16 @@ def test_manual_expense(url, browser):
     expect(page.get_by_role('region', name='Net worth')).to_contain_text('-$25.05')
     expect(page.get_by_role('list', name='Account balances')).to_contain_text('$75.95')
     expect(page.get_by_role('region', name='Recent expenses')).to_contain_text('Coffee beans')
-    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-    page.set_viewport_size({'width': 1280, 'height': 900})
-    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-    page.set_viewport_size({'width': 320, 'height': 720})
-    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     navigation = page.get_by_role('navigation', name='Main navigation')
     expect(navigation.get_by_role('link', name='Home')).to_have_attribute('aria-current', 'page')
-    assert navigation.get_by_role('link', name='Add an expense').bounding_box()['height'] >= 44
+    assert_layout(page, *navigation.get_by_role('link').all(), page.get_by_role('button', name='Quick add expense'))
     navigation.get_by_role('link', name='More').click()
     page.get_by_role('radio', name='dark').check()
     navigation.get_by_role('link', name='Home').click()
     expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
     expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$10.30')
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-    print('PASS Home data, desktop and 320px layouts, labeled navigation, and dark theme')
+    print('PASS Home data, navigation targets, and dark theme')
 
     page.get_by_role('button', name='Quick add expense').click()
     quick_add = page.get_by_role('region', name='Expense details')
@@ -567,6 +586,7 @@ def test_manual_expense(url, browser):
     settings = page.get_by_role('region', name='Manage categories')
     settings.get_by_role('button', name='Add category').click()
     form = settings.get_by_role('form', name='New category')
+    assert_layout(page, form.get_by_label('Color'), form.get_by_label('Icon'), form.get_by_role('button', name='Save category'))
     expect(form.get_by_label('Name')).to_be_focused()
     form.get_by_label('Name').fill('  Cycling  ')
     form.get_by_label('Color').fill('#345678')
@@ -605,8 +625,11 @@ if __name__ == '__main__':
         chrome = {'executable_path': os.environ['CHROME_PATH']} if os.environ.get('CHROME_PATH') else {}
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(**chrome)
-            test_sign_in(f'http://127.0.0.1:{server.server_port}/', browser)
-            test_account_management(f'http://127.0.0.1:{server.server_port}/', browser)
-            test_manual_expense(f'http://127.0.0.1:{server.server_port}/', browser)
+            url = f'http://127.0.0.1:{server.server_port}/'
+            for name, viewport in VIEWPORTS:
+                print(f'Testing {name} at {viewport["width"]} × {viewport["height"]}', flush=True)
+                test_sign_in(url, browser, viewport)
+                test_account_management(url, browser, viewport)
+                test_manual_expense(url, browser, viewport)
             browser.close()
         server.shutdown()
