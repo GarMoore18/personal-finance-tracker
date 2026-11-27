@@ -37,6 +37,8 @@ Netlify builds from `app/` with `npm run build` and publishes `dist/` using Node
 
 Production builds from `main` remain skipped by `netlify.toml`. After access and persistence checks are complete, the owner can authorize one manual production deploy. Removing the old source does not publish anything; the existing production deployment remains until a manual deploy.
 
+See the [deployment runbook](docs/DEPLOYMENT.md) for the hosted access preflight, deploy logs, and manual release procedure.
+
 ## Tests
 
 CI builds the app with synthetic Supabase configuration and runs the owner sign-in/account browser suite:
