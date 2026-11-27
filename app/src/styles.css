@@ -344,6 +344,32 @@ button:disabled {
   font: inherit;
 }
 .form-help { margin: 0; }
+.settings-links { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
+.csv-import { max-width: 42rem; }
+.csv-import > .form-help { margin-top: var(--space-1); }
+.csv-file { display: grid; gap: var(--space-1); font-weight: 650; }
+.csv-file input { width: 100%; min-width: 0; min-height: 44px; font: inherit; }
+.csv-file input::file-selector-button { min-height: 44px; font: inherit; }
+.csv-filename { overflow-wrap: anywhere; }
+.csv-mapping { margin: var(--space-3) 0 0; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--space-1); }
+.csv-mapping { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+.csv-mapping legend { font-weight: 700; }
+.csv-review { margin-top: var(--space-4); }
+.csv-problems { display: flex; align-items: center; gap: var(--space-1); min-height: 44px; }
+.csv-rows { list-style: none; padding: 0; margin: var(--space-2) 0; }
+.csv-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem var(--space-2);
+  padding-block: var(--space-2);
+  overflow-wrap: anywhere;
+  border-top: 1px solid var(--border);
+}
+.csv-rows li > span { max-width: 10ch; text-align: end; font-variant-numeric: tabular-nums; }
+.csv-rows li > small, .csv-rows li > p { grid-column: 1 / -1; margin: 0; }
+.csv-rows li > small { color: var(--muted); }
+.csv-notes { white-space: pre-wrap; }
+.csv-review > .form-actions { margin-bottom: var(--space-2); }
 .category-settings { max-width: 38rem; }
 .category-settings form { margin-block: var(--space-2); }
 .category-settings fieldset { margin: 0; padding: 0; border: 0; }

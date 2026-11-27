@@ -7,6 +7,7 @@ import { HomePage } from './HomePage';
 import { AccountsPage } from './AccountsPage';
 import { ExpenseForm } from './ExpenseForm';
 import { CategorySettings } from './CategorySettings';
+import { CsvImportPage } from './CsvImportPage';
 import { changeAppearance, initialTheme, themes } from './appearance';
 import { dashboardWidgets, loadDashboardPreferences, saveDashboardPreferences } from './dashboardPreferences';
 
@@ -19,10 +20,12 @@ const pages = [
 ] as const;
 
 const categoriesPage = { id: 'categories', heading: 'Categories' } as const;
-type Page = (typeof pages)[number] | typeof categoriesPage;
+const importPage = { id: 'import', heading: 'Import expenses' } as const;
+type Page = (typeof pages)[number] | typeof categoriesPage | typeof importPage;
 
 function currentPage(): Page {
   if (location.hash === '#/categories') return categoriesPage;
+  if (location.hash === '#/import') return importPage;
   return pages.find(({ id }) => location.hash === '#/' + id) ?? pages[0];
 }
 
@@ -101,6 +104,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
         )}
         {page.id === 'accounts' && <AccountsPage client={client} />}
         {page.id === 'categories' && <CategorySettings client={client} />}
+        {page.id === 'import' && <CsvImportPage client={client} />}
         {page.id === 'more' && (
           <>
             <fieldset className="panel appearance">
@@ -134,7 +138,10 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
                 </label>
               ))}
             </fieldset>
-            <a className="action" href="#/categories">Manage categories</a>
+            <div className="settings-links">
+              <a className="action" href="#/categories">Manage categories</a>
+              <a className="action" href="#/import">Import CSV</a>
+            </div>
             {signOut}
           </>
         )}
