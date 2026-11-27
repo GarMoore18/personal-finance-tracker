@@ -13,6 +13,8 @@ npm run dev --prefix app
 
 The app is under active development. Do not use real financial data until production access and persistence have been verified.
 
+Choose **Quick add expense** on the dashboard to record one or more expenses. The form starts with today's date and focuses the amount field. After a successful save, the dashboard refreshes and the form clears for the next expense.
+
 ## Supabase configuration
 
 Copy `app/.env.example` to `app/.env.local` and set `LEDGER_SUPABASE_URL` and `LEDGER_SUPABASE_PUBLISHABLE_KEY`. Never commit environment files, service-role keys, database passwords, or provider tokens. The URL and publishable key are public browser configuration.
