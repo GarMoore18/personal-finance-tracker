@@ -352,6 +352,9 @@ def test_manual_expense(url, browser, viewport):
     export_offsets = []
     duplicate_offsets = []
     report_offsets, report_balance_reads = [], []
+    receipt_uploads, stored_receipts = [], {}
+    receipt_png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXM0AAAAASUVORK5CYII=')
+
     category_requests = 0
     overview_ready = False
     bulk_month = False
@@ -370,6 +373,32 @@ def test_manual_expense(url, browser, viewport):
                 'refresh_token': 'synthetic-refresh-token', 'user': USER})
         elif path == '/auth/v1/user':
             route.fulfill(headers=headers, json=USER)
+        elif path == '/storage/v1/object/list/ledger-receipts':
+            assert request.post_data_json['prefix'] == USER['id']
+            assert request.post_data_json['limit'] == 13
+            route.fulfill(headers=headers, json=[
+                {'id': name, 'name': name.rsplit('/', 1)[1], 'created_at': '2024-02-29T13:00:00Z'}
+                for name in stored_receipts])
+        elif path.startswith('/storage/v1/object/ledger-receipts/'):
+            key = path.removeprefix('/storage/v1/object/ledger-receipts/')
+            assert re.fullmatch(USER['id'] + r'/[a-f0-9-]{36}\.png', key)
+            assert request.headers['authorization'].startswith('Bearer ')
+            if request.method == 'POST':
+                assert request.headers['x-upsert'] == 'true'
+                receipt_uploads.append(key)
+                stored_receipts[key] = receipt_png
+                if len(receipt_uploads) == 1:
+                    route.fulfill(status=503, headers=headers, json={'message': 'Synthetic lost response'})
+                else:
+                    route.fulfill(headers=headers, json={'Key': f'ledger-receipts/{key}', 'Id': key})
+            else:
+                assert request.method == 'GET'
+                route.fulfill(headers=headers, content_type='image/png', body=stored_receipts[key])
+        elif path == '/storage/v1/object/ledger-receipts' and request.method == 'DELETE':
+            keys = request.post_data_json['prefixes']
+            assert keys == [receipt_uploads[-1]]
+            route.fulfill(headers=headers, json=[{'name': keys[0]}])
+            del stored_receipts[keys[0]]
         elif path == '/rest/v1/categories':
             if request.method == 'GET':
                 category_requests += 1
@@ -1024,6 +1053,51 @@ def test_manual_expense(url, browser, viewport):
     expect(worth.get_by_role('listitem').last).to_contain_text('-$40.00')
     assert report_offsets == [0, 0, 200] and sorted(report_balance_reads) == ['accounts', 'snapshots']
     print('PASS report charts and CSV totals, selected periods, missing balances, and read reuse')
+
+    before_receipt = len(attempts)
+    navigation.get_by_role('link', name='More').click()
+    page.get_by_role('link', name='Receipt review').click()
+    receipt = page.get_by_role('region', name='Receipt image')
+    image_file = receipt.get_by_label('Receipt image', exact=True)
+    image_file.set_input_files({'name': 'wrong.svg', 'mimeType': 'image/svg+xml', 'buffer': b'<svg/>'})
+    expect(receipt.get_by_role('alert')).to_contain_text('Choose a JPEG, PNG, or WebP image')
+    image_file.set_input_files({'name': 'synthetic.png', 'mimeType': 'image/png', 'buffer': receipt_png})
+    private_save = receipt.get_by_role('button', name='Save private copy')
+    expect(private_save).to_be_enabled()
+    assert_layout(page, private_save)
+    assert not receipt_uploads and len(attempts) == before_receipt
+    private_save.click()
+    expect(receipt.get_by_role('alert')).to_contain_text('Could not save the private copy.')
+    private_save.click()
+    expect(receipt.get_by_role('status')).to_have_text('Image saved to your private receipts.')
+    assert len(receipt_uploads) == 2 and receipt_uploads[0] == receipt_uploads[1]
+    assert len(stored_receipts) == 1 and len(attempts) == before_receipt
+
+    page.get_by_role('button', name='Start expense').click()
+    expect(page.get_by_role('heading', name='Enter expense details')).to_be_focused()
+    details = page.get_by_role('region', name='Expense details')
+    details.get_by_label('Amount (USD)').fill('18.25')
+    details.get_by_label('Description').fill('Synthetic receipt expense')
+    details.get_by_label('Category').select_option('custom')
+    assert len(attempts) == before_receipt
+    details.get_by_role('button', name='Save expense').click()
+    expect(page.get_by_role('region', name='Enter expense details').get_by_role('status')).to_contain_text('Expense saved.')
+    assert len(attempts) == before_receipt + 1 and attempts[-1]['amount'] == '18.25'
+
+    navigation.get_by_role('link', name='More').click()
+    page.get_by_role('link', name='Receipt review').click()
+    receipt.get_by_role('button', name='Show saved receipts').click()
+    receipt.get_by_role('button', name=re.compile('Open receipt ·')).click()
+    expect(receipt.get_by_role('img', name='Receipt for manual review')).to_be_visible()
+    expect(receipt.get_by_role('link', name='Open full image')).to_be_visible()
+    receipt.get_by_role('button', name='Delete saved image').click()
+    receipt.get_by_role('button', name='Keep image').click()
+    assert len(stored_receipts) == 1
+    receipt.get_by_role('button', name='Delete saved image').click()
+    receipt.get_by_role('button', name='Delete image', exact=True).click()
+    expect(receipt.get_by_role('status')).to_have_text('Receipt image deleted.')
+    assert not stored_receipts and len(attempts) == before_receipt + 1
+    print('PASS private receipt preview, save retry, manual expense, and receipt retrieval and deletion')
     page.close()
 
 

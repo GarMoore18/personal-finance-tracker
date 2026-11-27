@@ -12,6 +12,7 @@ import { DataExportPage } from './DataExportPage';
 import { changeAppearance, initialTheme, themes } from './appearance';
 import { dashboardWidgets, loadDashboardPreferences, saveDashboardPreferences } from './dashboardPreferences';
 
+const ReceiptReviewPage = lazy(() => import('./ReceiptReviewPage'));
 const ReportsPage = lazy(() => import('./ReportsPage'));
 
 const pages = [
@@ -26,17 +27,19 @@ const categoriesPage = { id: 'categories', heading: 'Categories' } as const;
 const importPage = { id: 'import', heading: 'Import expenses' } as const;
 const exportPage = { id: 'export', heading: 'Export data' } as const;
 const reportsPage = { id: 'reports', heading: 'Reports' } as const;
-type Page = (typeof pages)[number] | typeof categoriesPage | typeof importPage | typeof exportPage | typeof reportsPage;
+const receiptsPage = { id: 'receipts', heading: 'Receipt review' } as const;
+type Page = (typeof pages)[number] | typeof categoriesPage | typeof importPage | typeof exportPage | typeof reportsPage | typeof receiptsPage;
 
 function currentPage(): Page {
   if (location.hash === '#/categories') return categoriesPage;
   if (location.hash === '#/import') return importPage;
+  if (location.hash === '#/receipts') return receiptsPage;
   if (location.hash === '#/reports') return reportsPage;
   if (location.hash === '#/export') return exportPage;
   return pages.find(({ id }) => location.hash === '#/' + id) ?? pages[0];
 }
 
-export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseClient }) {
+export function App({ signOut, client, owner }: { signOut: ReactNode; client: SupabaseClient; owner: string }) {
   const [page, setPage] = useState(currentPage);
   const [theme, setTheme] = useState(initialTheme);
   const [dashboard, setDashboard] = useState(loadDashboardPreferences);
@@ -114,6 +117,9 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
         {page.id === 'categories' && <CategorySettings client={client} />}
         {page.id === 'import' && <ExpenseImportPage client={client} />}
         {page.id === 'export' && <DataExportPage client={client} />}
+        {page.id === 'receipts' && <Suspense fallback={<p role="status">Loading receipt review…</p>}>
+          <ReceiptReviewPage client={client} owner={owner} />
+        </Suspense>}
         {page.id === 'reports' && <Suspense fallback={<p role="status">Loading reports…</p>}>
           <ReportsPage client={client} />
         </Suspense>}
@@ -152,6 +158,7 @@ export function App({ signOut, client }: { signOut: ReactNode; client: SupabaseC
             </fieldset>
             <div className="settings-links">
               <a className="action" href="#/reports">Reports</a>
+              <a className="action" href="#/receipts">Receipt review</a>
               <a className="action" href="#/categories">Manage categories</a>
               <a className="action" href="#/import">Import expenses</a>
               <a className="action" href="#/export">Export data</a>
