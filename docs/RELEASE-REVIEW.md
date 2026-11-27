@@ -14,4 +14,4 @@ The app has no public registration screen. Supabase Auth verifies the session an
 
 Supabase's security advisor reported that leaked-password protection is disabled. This feature requires Pro or above. Keep a unique, generated owner password on the current plan. [Supabase password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
 
-See the [backup runbook](BACKUP-RECOVERY.md) and [UX release pass](UX-REVIEW.md) for the outstanding rehearsal and device checks.
+See the [deployment runbook](DEPLOYMENT.md), [backup runbook](BACKUP-RECOVERY.md), and [UX release pass](UX-REVIEW.md) for the remaining hosted and device checks.
