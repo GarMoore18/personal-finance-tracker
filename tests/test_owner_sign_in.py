@@ -311,8 +311,10 @@ def test_manual_expense(url, browser, viewport):
                                 'icon': 'basket', 'sort_order': 10}}
     category_writes = []
     saved, attempts, changes = [], [], []
+    spending_requests, balance_requests = [], []
     category_requests = 0
     overview_ready = False
+    bulk_month = False
 
     def api(route):
         nonlocal category_requests
@@ -348,7 +350,8 @@ def test_manual_expense(url, browser, viewport):
                 categories[category_id].update(request.post_data_json)
                 route.fulfill(headers=headers, json=categories[category_id])
         elif path == '/rest/v1/transactions' and request.method == 'GET':
-            dates = parse_qs(urlsplit(request.url).query).get('occurred_on', [])
+            query = parse_qs(urlsplit(request.url).query)
+            dates = query.get('occurred_on', [])
             rows = []
             if overview_ready:
                 rows = [
@@ -369,10 +372,21 @@ def test_manual_expense(url, browser, viewport):
                     {'id': '3', 'occurred_on': '2024-02-28', 'amount': 8,
                      'description': 'Sandwich', 'category_id': 'dining', 'categories': {'name': 'Dining'}},
                 ]
+            if query.get('select') == ['occurred_on,amount']:
+                assert len(dates) == 2
+                offset = int(query.get('offset', [0])[0])
+                limit = int(query.get('limit', [200])[0])
+                spending_requests.append(offset)
+                if bulk_month:
+                    rows = [{'occurred_on': today, 'amount': 0.05}] * 201
+                    rows = rows[offset:offset + limit]
+                rows = [{'occurred_on': row['occurred_on'], 'amount': row['amount']} for row in rows]
             route.fulfill(headers=headers, json=rows)
         elif path == '/rest/v1/current_net_worth':
+            balance_requests.append(path)
             route.fulfill(headers=headers, json=[{'net_worth': '-25.05'}] if overview_ready else [])
         elif path == '/rest/v1/accounts':
+            balance_requests.append(path)
             route.fulfill(headers=headers, json=[{'id': '6', 'name': 'Checking',
                                                   'current_balance': 75.95}] if overview_ready else [])
         elif path == '/rest/v1/transactions' and request.method in ('PATCH', 'DELETE'):
@@ -453,6 +467,7 @@ def test_manual_expense(url, browser, viewport):
     print('PASS manual expense date, category retry, amount validation, failed write recovery, and successful save')
 
     page.get_by_role('link', name='Activity', exact=True).click()
+    expect(page.get_by_role('status').filter(has_text='Expense saved.')).to_have_count(0)
     expect(page.get_by_text('No expenses for this month.')).to_be_visible()
     page.get_by_label('Month', exact=True).fill('2024-02')
     dates = page.locator('.activity-day')
@@ -566,14 +581,21 @@ def test_manual_expense(url, browser, viewport):
     navigation = page.get_by_role('navigation', name='Main navigation')
     expect(navigation.get_by_role('link', name='Home')).to_have_attribute('aria-current', 'page')
     assert_layout(page, *navigation.get_by_role('link').all(), page.get_by_role('button', name='Quick add expense'))
+    if viewport['width'] < 768:
+        heading = page.get_by_role('heading', name='Recent expenses').bounding_box()
+        nav = navigation.bounding_box()
+        assert heading['y'] + heading['height'] <= nav['y']
     navigation.get_by_role('link', name='More').click()
     page.get_by_role('radio', name='dark').check()
     navigation.get_by_role('link', name='Home').click()
     expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
     expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$10.30')
+    expect(page.get_by_role('region', name='Net worth')).to_contain_text('-$25.05')
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('PASS Home data, navigation targets, and dark theme')
 
+    balances_before_saves = len(balance_requests)
+    spending_before_saves = len(spending_requests)
     page.get_by_role('button', name='Quick add expense').click()
     quick_add = page.get_by_role('region', name='Expense details')
     amount = quick_add.get_by_label('Amount (USD)')
@@ -591,6 +613,8 @@ def test_manual_expense(url, browser, viewport):
         expect(quick_add.get_by_label('Category')).to_have_value('')
     expect(page.get_by_role('status').filter(has_text='2 expenses saved.')).to_be_visible()
     expect(page.get_by_role('region', name='Spending this month')).to_contain_text('$11.80')
+    assert len(balance_requests) == balances_before_saves
+    assert len(spending_requests) == spending_before_saves + 2
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     page.get_by_role('button', name='Close quick add').click()
     expect(quick_add).to_be_hidden()
@@ -650,6 +674,16 @@ def test_manual_expense(url, browser, viewport):
     navigation.get_by_role('link', name='Add an expense').click()
     page.get_by_label('Category').select_option(label='Cycling')
     print('PASS category creation, failed save recovery, appearance preferences, and reference-safe rename')
+    bulk_month = True
+    navigation.get_by_role('link', name='More').click()
+    widgets.get_by_role('checkbox', name='Spending this month').check()
+    spending_before_bulk = len(spending_requests)
+    navigation.get_by_role('link', name='Home').click()
+    spending = page.get_by_role('region', name='Spending this month')
+    expect(spending).to_contain_text('$10.05')
+    expect(spending).to_contain_text('201 expenses')
+    assert 200 in spending_requests[spending_before_bulk:]
+    print('PASS spending totals across request pages and expense-only refresh after Quick Add')
     page.close()
 
 

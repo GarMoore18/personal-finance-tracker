@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatUsd, toCents } from './money';
-import { currentMonth, dayLabel, groupDays, loadMonth, transactionQuery } from './transactions';
-import type { Day, Transaction } from './transactions';
+import { currentMonth, dayLabel, groupDays, loadMonthSpending, transactionQuery } from './transactions';
+import type { DailyTotal, Day, Transaction } from './transactions';
 import { ExpenseForm } from './ExpenseForm';
 import type { DashboardPreferences } from './dashboardPreferences';
 
 type Account = { id: string; name: string; current_balance: string | number };
-type Overview = { count: number | null; worthFailed: boolean; spending: bigint | null; spendingDays: Day[]; netWorth: bigint | null; accounts: Account[] | null; recent: Day[] | null };
+type ExpenseOverview = { spending: Awaited<ReturnType<typeof loadMonthSpending>>; recent: Day[] | null };
+type BalanceOverview = { worthFailed: boolean; netWorth: bigint | null; accounts: Account[] | null };
 const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-function DailySpending({ days, month }: { days: Day[]; month: string }) {
+function DailySpending({ days, month }: { days: DailyTotal[]; month: string }) {
   if (!days.length) return null;
   const [year, monthNumber] = month.split('-').map(Number);
   const dayCount = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
@@ -40,54 +41,69 @@ export function HomePage({ client, onCurrentActivity, widgets }: {
   widgets: DashboardPreferences;
 }) {
   const month = currentMonth();
-  const [overview, setOverview] = useState<Overview>();
-  const [attempt, setAttempt] = useState(0);
+  const [expenses, setExpenses] = useState<ExpenseOverview>();
+  const [balances, setBalances] = useState<BalanceOverview>();
+  const [retry, setRetry] = useState(0);
+  const [expenseRefresh, setExpenseRefresh] = useState(0);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
 
   useEffect(() => {
+    if (!widgets.spending && !widgets.recent) return;
     const request = new AbortController();
     const signal = request.signal;
     void (async () => {
-      const [spending, worth, accounts, recent] = await Promise.all([
-        widgets.spending ? loadMonth(client, month, signal) : null,
-        widgets.worth ? client.from('current_net_worth').select('net_worth').abortSignal(signal).maybeSingle() : null,
-        widgets.worth ? client.from('accounts').select('id,name,current_balance').is('archived_at', null)
-          .order('name').order('id').limit(4).abortSignal(signal) : null,
+      const [spending, recent] = await Promise.all([
+        widgets.spending ? loadMonthSpending(client, month, signal) : null,
         widgets.recent ? transactionQuery(client).limit(5).abortSignal(signal)
           .overrideTypes<Transaction[], { merge: false }>() : null,
       ]);
       if (signal.aborted) return;
-      setOverview({
-        count: spending?.reduce((total, day) => total + day.transactions.length, 0) ?? null,
-        spending: spending?.reduce((sum, day) => sum + day.total, 0n) ?? null,
-        spendingDays: spending ?? [],
+      setExpenses({ spending, recent: recent?.data ? groupDays(recent.data) : null });
+    })();
+    return () => request.abort();
+  }, [client, month, retry, expenseRefresh, widgets.spending, widgets.recent]);
+
+  useEffect(() => {
+    if (!widgets.worth) return;
+    const request = new AbortController();
+    const signal = request.signal;
+    void (async () => {
+      const [worth, accounts] = await Promise.all([
+        client.from('current_net_worth').select('net_worth').abortSignal(signal).maybeSingle(),
+        client.from('accounts').select('id,name,current_balance').is('archived_at', null)
+          .order('name').order('id').limit(4).abortSignal(signal),
+      ]);
+      if (signal.aborted) return;
+      setBalances({
         netWorth: worth?.data ? toCents(worth.data.net_worth) : null,
         accounts: accounts?.data ?? null,
         worthFailed: !!worth?.error,
-        recent: recent?.data ? groupDays(recent.data) : null,
       });
     })();
     return () => request.abort();
-  }, [client, month, attempt, widgets]);
+  }, [client, retry, widgets.worth]);
 
-  const hasWidgets = widgets.spending || widgets.recent || widgets.worth;
-  const missing = overview && (
-    (widgets.worth && (overview.worthFailed || overview.accounts === null)) ||
-    (widgets.spending && overview.spending === null) ||
-    (widgets.recent && overview.recent === null)
+  const hasExpenseWidgets = widgets.spending || widgets.recent;
+  const hasWidgets = hasExpenseWidgets || widgets.worth;
+  const loading = (hasExpenseWidgets && !expenses) || (widgets.worth && !balances);
+  const missing = (
+    (widgets.worth && balances && (balances.worthFailed || balances.accounts === null)) ||
+    (widgets.spending && expenses?.spending === null) ||
+    (widgets.recent && expenses?.recent === null)
   );
   return (
     <div className="overview">
       <div className="overview-heading">
         <h1>Overview</h1>
         <button type="button" className="overview-quick-add" aria-expanded={quickAddOpen} aria-controls="quick-add-expense"
+          aria-label={quickAddOpen ? 'Close quick add' : 'Quick add expense'}
           onClick={() => {
             setQuickAddOpen((open) => !open);
             setSavedCount(0);
           }}>
           <span aria-hidden="true">{quickAddOpen ? '×' : '+'}</span>
-          {quickAddOpen ? 'Close quick add' : 'Quick add expense'}
+          {quickAddOpen ? 'Close' : 'Quick add'}
         </button>
       </div>
       <div id="quick-add-expense" hidden={!quickAddOpen}>
@@ -98,15 +114,14 @@ export function HomePage({ client, onCurrentActivity, widgets }: {
         </div>
         {quickAddOpen && <ExpenseForm client={client} quickAdd onSaved={() => {
           setSavedCount((count) => count + 1);
-          setAttempt((previous) => previous + 1);
+          setExpenseRefresh((previous) => previous + 1);
         }} />}
       </div>
-      {hasWidgets && !overview && <p role="status" className="overview-notice">Loading your overview…</p>}
+      {loading && <p role="status" className="overview-notice">Loading your overview…</p>}
       {missing && <div className="overview-error" role="alert">
         <span>Some balances or expenses couldn’t be loaded.</span>
         <button className="button-secondary" type="button" onClick={() => {
-          setOverview(undefined);
-          setAttempt((previous) => previous + 1);
+          setRetry((previous) => previous + 1);
         }}>Retry</button>
       </div>}
       {!hasWidgets && <p className="overview-notice">Choose widgets in <a href="#/more">Settings</a> to show them here.</p>}
@@ -116,10 +131,10 @@ export function HomePage({ client, onCurrentActivity, widgets }: {
             <h2 id="spending-title">Spending this month</h2>
             <span>{monthLabel.format(new Date(month + '-01T00:00:00Z'))}</span>
           </div>
-          <p className="overview-amount">{overview?.spending != null ? formatUsd(overview.spending) : '—'}</p>
-          {overview?.count != null && <div className="overview-spending-footer">
-            <p className="overview-count">{overview.count} {overview.count === 1 ? 'expense' : 'expenses'}</p>
-            <DailySpending days={overview.spendingDays} month={month} />
+          <p className="overview-amount">{expenses?.spending ? formatUsd(expenses.spending.total) : '—'}</p>
+          {expenses?.spending && <div className="overview-spending-footer">
+            <p className="overview-count">{expenses.spending.count} {expenses.spending.count === 1 ? 'expense' : 'expenses'}</p>
+            <DailySpending days={expenses.spending.days} month={month} />
           </div>}
         </section>}
         {widgets.worth && <section className="panel overview-accounts" aria-labelledby="worth-title">
@@ -127,11 +142,11 @@ export function HomePage({ client, onCurrentActivity, widgets }: {
             <h2 id="worth-title">Net worth</h2>
             <a className="action" href="#/accounts">View accounts</a>
           </div>
-          <p className="overview-amount">{overview?.netWorth != null ? formatUsd(overview.netWorth) : '—'}</p>
-          {overview?.accounts?.length === 0 && !overview.worthFailed && <p>Add an account to see your net worth.</p>}
-          {!!overview?.accounts?.length && (
+          <p className="overview-amount">{balances?.netWorth != null ? formatUsd(balances.netWorth) : '—'}</p>
+          {balances?.accounts?.length === 0 && !balances.worthFailed && <p>Add an account to see your net worth.</p>}
+          {!!balances?.accounts?.length && (
             <ul className="overview-list" aria-label="Account balances">
-              {overview.accounts.map(({ id, name, current_balance: balance }) => (
+              {balances.accounts.map(({ id, name, current_balance: balance }) => (
                 <li key={id}><span>{name}</span><strong>{formatUsd(toCents(balance))}</strong></li>
               ))}
             </ul>
@@ -143,8 +158,8 @@ export function HomePage({ client, onCurrentActivity, widgets }: {
             <a className="action" href="#/activity" onClick={onCurrentActivity}>View all</a>
           </div>
           <div className="overview-rows">
-            {overview?.recent?.length === 0 && <p>No expenses yet.</p>}
-            {overview?.recent?.map((day) => (
+            {expenses?.recent?.length === 0 && <p>No expenses yet.</p>}
+            {expenses?.recent?.map((day) => (
               <div className="overview-day" key={day.date}>
                 <h3>{dayLabel.format(new Date(day.date + 'T00:00:00Z'))}</h3>
                 <ul className="overview-list">
