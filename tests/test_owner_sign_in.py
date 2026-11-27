@@ -311,6 +311,7 @@ def test_manual_expense(url, browser, viewport):
                                 'icon': 'basket', 'sort_order': 10}}
     category_writes = []
     saved, attempts, changes = [], [], []
+    import_attempts, imported = [], {}
     spending_requests, balance_requests = [], []
     category_requests = 0
     overview_ready = False
@@ -398,6 +399,18 @@ def test_manual_expense(url, browser, viewport):
                 saved.clear()
             route.fulfill(headers=headers, json=[{'id': '1'}])
         elif path == '/rest/v1/transactions' and request.method == 'POST':
+            payload = request.post_data_json
+            if isinstance(payload, list):
+                assert parse_qs(urlsplit(request.url).query)['on_conflict'] == ['id']
+                assert 'resolution=ignore-duplicates' in request.headers['prefer']
+                import_attempts.append(payload)
+                for row in payload:
+                    imported.setdefault(row['id'], row)
+                if len(import_attempts) == 1:
+                    route.fulfill(status=503, headers=headers, json={'message': 'Synthetic lost confirmation'})
+                else:
+                    route.fulfill(status=201, headers=headers, body='')
+                return
             attempts.append(request.post_data_json)
             if len(attempts) == 1:
                 route.fulfill(status=400, headers=headers, json={'message': 'Synthetic write failure'})
@@ -684,6 +697,45 @@ def test_manual_expense(url, browser, viewport):
     expect(spending).to_contain_text('201 expenses')
     assert 200 in spending_requests[spending_before_bulk:]
     print('PASS spending totals across request pages and expense-only refresh after Quick Add')
+
+    navigation.get_by_role('link', name='More').click()
+    page.get_by_role('link', name='Import CSV').click()
+    csv = page.get_by_role('region', name='CSV expense import')
+    file_picker = csv.get_by_label('CSV file')
+    header = 'Booking date,Cost,Merchant,Group,Notes\r\n'
+    valid = '2024-02-29,10.05,"Bread, fresh",Food at home,"First line\nSecond line"\r\n'
+
+    def upload(content):
+        file_picker.set_input_files({'name': 'expenses.csv', 'mimeType': 'text/csv', 'buffer': content.encode()})
+        expect(csv.get_by_role('group', name='Match columns')).to_be_visible()
+        for label, index in [('Date', '0'), ('Amount (USD)', '1'), ('Category', '3')]:
+            csv.get_by_role('combobox', name=label, exact=True).select_option(index)
+
+    upload(header + valid + '2025-02-29,2.00,Invalid date,Groceries,\r\n2024-02-29,2.00')
+    expect(csv.get_by_text('Use a valid date in YYYY-MM-DD format.')).to_be_visible()
+    expect(csv.get_by_text('The number of columns differs from the header.')).to_be_visible()
+    expect(csv.get_by_role('button', name='Import 3 expenses')).to_be_disabled()
+    csv.get_by_role('checkbox', name='Show only rows with problems').check()
+    expect(csv.get_by_text('Bread, fresh')).to_have_count(0)
+    assert not import_attempts
+
+    upload(header + valid + '2024-02-28,.75,Train,Cycling,\r\n')
+    expect(csv.get_by_text('Bread, fresh')).to_be_visible()
+    expect(csv.get_by_text('Train', exact=True)).to_be_visible()
+    assert_layout(page, csv.get_by_role('button', name='Import 2 expenses'))
+    assert not import_attempts
+    csv.get_by_role('button', name='Import 2 expenses').click()
+    expect(csv.get_by_role('alert')).to_contain_text('Could not confirm the import.')
+    expect(file_picker).to_be_disabled()
+    expect(csv.get_by_text('Bread, fresh')).to_be_visible()
+    csv.get_by_role('button', name='Retry import').click()
+    expect(csv.get_by_role('status')).to_contain_text('Imported 2 expenses.')
+    assert len(imported) == 2 and import_attempts[0] == import_attempts[1]
+    first, second = import_attempts[0]
+    assert first == {'id': first['id'], 'occurred_on': '2024-02-29', 'amount': '10.05',
+                     'description': 'Bread, fresh', 'category_id': category_id, 'notes': 'First line\nSecond line'}
+    assert second['category_id'] == 'custom' and second['amount'] == '0.75' and second['notes'] is None
+    print('PASS CSV mapping, malformed row review, explicit import, and safe retry')
     page.close()
 
 
